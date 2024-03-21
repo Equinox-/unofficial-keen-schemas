@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Patches>
+  <Type Name="MyObjectBuilder_DefinitionBase">
+    <Member Name="Abstract" MakeOptional="true"/>
+    <Member Name="Enabled" MakeOptional="true"/>
+    <Member Name="Merge" MakeOptional="true"/>
+  </Type>
+</Patches>
