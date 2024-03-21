@@ -1,0 +1,70 @@
+name: .NET
+
+on: [push]
+jobs:
+  build:
+    runs-on: windows-2019
+    permissions:
+      contents: read
+      id-token: write # For federated auth
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: setup-msbuild
+        uses: microsoft/setup-msbuild@v1.3.1
+      # Restore NuGet
+      - name: Setup NuGet.exe for use with actions
+        uses: NuGet/setup-nuget@v1.1.1
+      - name: Generate NuGet Cache Key
+        id: nuget_cache_key
+        run: powershell -Command echo "key=nuget-cache-$((Get-FileHash -InputStream ([IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes((Select-String -Path "*/*.csproj" -Pattern "PackageReference" | foreach {$_.line.Trim()} | Sort-Object))))).Hash)" >> $env:GITHUB_OUTPUT
+      - name: Cache Nuget
+        uses: actions/cache@v3
+        with:
+          key: ${{ steps.nuget_cache_key.outputs.key }}
+          path: ~/.nuget/packages
+      - name: Restore dependencies
+        run: msbuild /p:Configuration=Release -t:restore DedicatedServerWrapper.sln
+      # Compile
+      - name: Build Shared
+        run: msbuild /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
+      # Restore game cache keys.
+      - name: Generate game cache key
+        id: game_cache_key
+        run: powershell -Command echo "key=game-cache-v1-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
+      - name: Cache ME
+        uses: actions/cache@v3
+        with:
+          key: ${{ steps.me_cache_key.outputs.key }}
+          restore-keys: |
+            game-cache-v1-
+          path: game/
+      # Build Schemas
+      - name: Generate vanilla SE schema
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe space-vanilla SE public
+      - name: Generate vanilla ME schema
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-vanilla ME communityedition
+      # Upload Schemas
+      - name: Upload Schemas
+        uses: actions/upload-artifact@v3
+        with:
+          name: schemas
+          path: schemas/
+      # Publish to GCS
+      - name: Log into gcloud
+        id: auth
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) && github.event_name != 'pull_request'
+        uses: 'google-github-actions/auth@v0'
+        with:
+          workload_identity_provider: 'projects/445692247363/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
+          service_account: 'keen-schema-uploader@machpi-net.iam.gserviceaccount.com'
+      - name: Release Schemas
+        uses: 'google-github-actions/upload-cloud-storage@v1'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: schemas/
+          destination: "unofficial-keen-schemas/latest/"
+          parent: false
+          headers: |-
+            cache-control: public, max-age=300, must-revalidate
