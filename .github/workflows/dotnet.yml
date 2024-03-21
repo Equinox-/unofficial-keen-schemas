@@ -25,7 +25,7 @@ jobs:
           key: ${{ steps.nuget_cache_key.outputs.key }}
           path: ~/.nuget/packages
       - name: Restore dependencies
-        run: msbuild /p:Configuration=Release -t:restore DedicatedServerWrapper.sln
+        run: msbuild /p:Configuration=Release -t:restore SchemaGenerator.sln
       # Compile
       - name: Build Shared
         run: msbuild /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
