@@ -33,10 +33,10 @@ jobs:
       - name: Generate game cache key
         id: game_cache_key
         run: powershell -Command echo "key=game-cache-v1-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
-      - name: Cache ME
+      - name: Cache Game Binaries
         uses: actions/cache@v3
         with:
-          key: ${{ steps.me_cache_key.outputs.key }}
+          key: ${{ steps.game_cache_key.outputs.key }}
           restore-keys: |
             game-cache-v1-
           path: game/
