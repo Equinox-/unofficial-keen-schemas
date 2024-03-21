@@ -6,7 +6,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchemaBuilder", "SchemaBuil
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{F51A3B79-937D-4534-9EF5-1A27367439C2}"
 	ProjectSection(SolutionItems) = preProject
-		.github\dotnet.yml = .github\dotnet.yml
+		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
 	EndProjectSection
 EndProject
 Global
