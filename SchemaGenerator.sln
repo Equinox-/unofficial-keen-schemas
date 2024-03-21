@@ -9,6 +9,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{F51A
 		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "patches", "patches", "{E470B92F-70E4-4515-8042-784D1894887D}"
+	ProjectSection(SolutionItems) = preProject
+		patches\space-vanilla.xml = patches\space-vanilla.xml
+		patches\medieval-vanilla.xml = patches\medieval-vanilla.xml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64

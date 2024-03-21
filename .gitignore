@@ -197,3 +197,6 @@ PublishScripts/
 
 TestDir/
 .idea/
+
+game/
+schemas/
