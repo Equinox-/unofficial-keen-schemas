@@ -28,8 +28,15 @@ namespace SchemaService.SteamUtils
                 DebugLog.ClearListeners();
                 DebugLog.AddListener((category, msg) =>
                 {
-                    category = categoryCleaner.Replace(category, "");
-                    logFactory.CreateLogger("SteamKit2." + category).LogInformation(msg);
+                    try
+                    {
+                        category = categoryCleaner.Replace(category, "");
+                        logFactory.CreateLogger("SteamKit2." + category).LogInformation(msg);
+                    }
+                    catch
+                    {
+                        Console.WriteLine($"Failed to log {category}: {msg}");
+                    }
                 });
                 DebugLog.Enabled = true;
                 return new SteamClient(config);
