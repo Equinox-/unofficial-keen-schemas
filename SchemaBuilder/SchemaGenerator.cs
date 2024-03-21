@@ -164,6 +164,14 @@ namespace SchemaBuilder
         {
             public XmlInfo Info;
             public PatchFile Patches;
+
+            public void TypeData(string typeName, out XmlTypeInfo typeInfo, out TypePatch typePatch)
+            {
+                Info.TryGetTypeByXmlName(typeName, out typeInfo);
+                typePatch = Patches.TypePatch(typeName);
+                if (typePatch == null && typeInfo != null)
+                    typePatch = Patches.TypePatch(typeInfo.Type.FullName);
+            }
         }
 
         private void Postprocess(PostprocessArgs args, XmlSchema schema)
@@ -201,8 +209,7 @@ namespace SchemaBuilder
 
         private void Postprocess(PostprocessArgs args, XmlSchemaSimpleType type)
         {
-            args.Info.TryGetTypeByXmlName(type.Name, out var typeInfo);
-            var typePatch = args.Patches.TypePatch(type.Name);
+            args.TypeData(type.Name, out var typeInfo, out var typePatch);
 
             var typeDoc = "";
             if (typeInfo != null)
@@ -217,8 +224,7 @@ namespace SchemaBuilder
 
         private void Postprocess(PostprocessArgs args, XmlSchemaComplexType type)
         {
-            args.Info.TryGetTypeByXmlName(type.Name, out var typeInfo);
-            var typePatch = args.Patches.TypePatch(type.Name);
+            args.TypeData(type.Name, out var typeInfo, out var typePatch);
 
             var typeDoc = "";
             if (typeInfo != null)
@@ -262,7 +268,9 @@ namespace SchemaBuilder
                             doc = _docs.GetMemberComment(attrMember.Member);
 
                         var memberPatch = typePatch?.MemberPatch(attr.Name);
-                        if (memberPatch?.MakeOptional ?? false)
+                        if (memberPatch?.MakeRequired ?? false)
+                            attr.Use = XmlSchemaUse.Required;
+                        else if ((memberPatch?.MakeOptional ?? false) || args.Patches.AllOptional)
                             attr.Use = XmlSchemaUse.Optional;
                         if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
                         MaybeAttachDocumentation(attr, doc);
@@ -302,7 +310,10 @@ namespace SchemaBuilder
 
 
                         var memberPatch = typePatch?.MemberPatch(element.Name);
-                        if (memberPatch?.MakeOptional ?? false) element.MinOccurs = 0;
+                        if (memberPatch?.MakeRequired ?? false)
+                            element.MinOccurs = Math.Max(element.MinOccurs, 1);
+                        else if ((memberPatch?.MakeOptional ?? false) || args.Patches.AllOptional)
+                            element.MinOccurs = 0;
                         if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
 
                         MaybeAttachDocumentation(element, doc);

@@ -8,6 +8,9 @@ namespace SchemaBuilder
     [XmlRoot("Patches")]
     public class PatchFile
     {
+        [XmlElement]
+        public bool AllOptional;
+        
         [XmlElement("Type")]
         public List<TypePatch> Types = new List<TypePatch>();
 
@@ -47,5 +50,8 @@ namespace SchemaBuilder
 
         [XmlAttribute]
         public bool MakeOptional;
+
+        [XmlAttribute]
+        public bool MakeRequired;
     }
 }

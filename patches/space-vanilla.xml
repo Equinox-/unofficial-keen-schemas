@@ -1,2 +1,15 @@
 <?xml version='1.0' encoding='utf-8'?>
-<Patches/>
+<Patches>
+    <AllOptional>true</AllOptional>
+    
+    <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
+        <Member Name="BlockPairName">
+            <Documentation>
+                Any string that you can use on 2 blocks to pair them into being toggled between grid sizes with R/same-number.
+                Should not be used on more than 1 block of each grid size and should not be omitted. The subtype without the size indicator is a good one to use.
+                Also used by BlockLimits in world settings (usable in DS GUI).
+                And also used by mechanical blocks (rotors/pistons/suspensions) as a target for &lt;RotorTop&gt;/etc instead of a subtypeId which is important for "Add small top" from terminal to work.
+            </Documentation>
+        </Member>
+    </Type>
+</Patches>
