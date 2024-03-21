@@ -31,10 +31,9 @@ namespace SchemaBuilder
             branch ??= info.SteamBranch;
             _log.LogInformation($"Installing game {game}, branch {branch}");
             var installDir = Path.Combine(_rootDir, "game", game.ToString(), branch);
-            if (Skip)
-                return installDir;
-            await _steam.InstallAppAsync(info.SteamDedicatedAppId, info.SteamDedicatedDepotId, branch, installDir, 4,
-                path => path.StartsWith(BinariesDir), game.ToString());
+            if (!Skip)
+                await _steam.InstallAppAsync(info.SteamDedicatedAppId, info.SteamDedicatedDepotId, branch, installDir, 4,
+                    path => path.StartsWith(BinariesDir), game.ToString());
 
             return Path.Combine(installDir, BinariesDir);
         }

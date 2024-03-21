@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -43,35 +44,97 @@ namespace SchemaBuilder
 
             var patches = PatchFile.Read(Path.Combine("patches", cfg.Name + ".xml"));
 
-            var info = new XmlInfo();
+            var info = new XmlInfo(_log);
+            DiscoverTypes(info, gameInfo, Directory.GetFiles(gameBinaries, "*.dll", SearchOption.TopDirectoryOnly));
             info.Generate(Type.GetType(gameInfo.RootType));
 
-            var inheritingFrom = gameInfo.PolymorphicBaseTypes.Select(Type.GetType).ToList();
+            var schemas = GenerateInternal(info).OrderByDescending(x => x.Elements.Count)
+                .ToList();
+            if (schemas.Count == 0)
+                throw new Exception("No schemas generated");
+            var schema = schemas[0];
+            if (schemas.Count > 1)
+                _log.LogWarning("Generated multiple schemas, possibly causing issues");
+            Postprocess(new PostprocessArgs { Info = info, Patches = patches }, schema);
+            var namespaceUrl = "https://storage.googleapis.com/unofficial-keen-schemas/latest/" + cfg.Name + ".xsd";
+            schema.Namespaces.Add("", namespaceUrl);
+            schema.TargetNamespace = namespaceUrl;
 
-            foreach (var bin in Directory.GetFiles(gameBinaries, "*.dll", SearchOption.TopDirectoryOnly))
+            Directory.CreateDirectory("schemas");
+            using var stream = File.Open(Path.Combine("schemas", cfg.Name + ".xsd"), FileMode.Create, FileAccess.Write);
+            using var text = new StreamWriter(stream, Encoding.UTF8);
+            schema.Write(text);
+        }
+
+        private void DiscoverTypes(
+            XmlInfo info,
+            GameInfo gameInfo,
+            IEnumerable<string> assemblies)
+        {
+            var polymorphicSubtypes = assemblies.SelectMany(asmName =>
+            {
                 try
                 {
-                    var asm = Assembly.Load(Path.GetFileNameWithoutExtension(bin));
-                    foreach (var type in asm.GetTypes())
-                        if (type.GetCustomAttributesData().Any(x => gameInfo.PolymorphicSubtypeAttribute.Contains(x.AttributeType.FullName))
-                            && inheritingFrom.Any(x => x.IsAssignableFrom(type)))
-                            info.Generate(type);
+                    var asm = Assembly.Load(Path.GetFileNameWithoutExtension(asmName));
+                    return asm.GetTypes()
+                        .Where(type => type.GetCustomAttributesData()
+                            .Any(x => gameInfo.PolymorphicSubtypeAttribute.Contains(x.AttributeType.FullName)));
                 }
                 catch
                 {
                     // ignore assembly load errors.
+                    return Type.EmptyTypes;
                 }
+            }).ToList();
+            var exploredBasesFrom = new HashSet<Type>();
+            var exploredBases = new HashSet<Type>();
+            var polymorphicQueue = new Queue<(Type, string)>();
 
-            var schema = GenerateInternal(info)
-                .OrderByDescending(x => x.Elements.Count)
-                .First();
-            Postprocess(new PostprocessArgs { Info = info, Patches = patches }, schema);
-            schema.TargetNamespace = "https://storage.googleapis.com/unofficial-keen-schemas/latest/" + cfg.Name + ".xsd";
+            foreach (var polymorphic in gameInfo.PolymorphicBaseTypes.Select(Type.GetType))
+                ConsiderPolymorphicBase(polymorphic, "game config");
+            ConsiderPolymorphicBasesFrom(info.Generate(Type.GetType(gameInfo.RootType)));
 
-            Directory.CreateDirectory("schemas");
-            using var stream = File.OpenWrite(Path.Combine("schemas", cfg.Name + ".xsd"));
-            using var text = new StreamWriter(stream, Encoding.UTF8);
-            schema.Write(text);
+            while (polymorphicQueue.Count > 0)
+            {
+                var explore = polymorphicQueue.Dequeue();
+                ExplorePolymorphicBase(explore.Item1, explore.Item2);
+                foreach (var type in info.AllTypes)
+                    ConsiderPolymorphicBasesFrom(type);
+            }
+
+            return;
+
+            void ConsiderPolymorphicBase(Type baseType, string via)
+            {
+                if (exploredBases.Add(baseType))
+                    polymorphicQueue.Enqueue((baseType, via));
+            }
+
+            void ConsiderPolymorphicBasesFrom(XmlTypeInfo type)
+            {
+                if (gameInfo.SuppressedTypes.Contains(type.Type.FullName))
+                    return;
+                if (!exploredBasesFrom.Add(type.Type))
+                    return;
+                    
+                foreach (var member in type.Members.Values)
+                {
+                    if (member.ReferencedTypes.Count == 1
+                        && (member.IsPolymorphicElement || member.IsPolymorphicArrayItem))
+                    {
+                        ConsiderPolymorphicBase(member.ReferencedTypes[0].Type, $"{type.Type.Name}#{member.Member.Name}");
+                    }
+                }
+            }
+
+            void ExplorePolymorphicBase(Type baseType, string via)
+            {
+                _log.LogInformation($"Exploring polymorphic base type {baseType.Name} via {via}");
+                info.Generate(baseType);
+                foreach (var type in polymorphicSubtypes)
+                    if (baseType.IsAssignableFrom(type) && !gameInfo.SuppressedTypes.Contains(type.FullName))
+                        info.Generate(type);
+            }
         }
 
         private XmlSchemas GenerateInternal(XmlInfo info)
@@ -138,7 +201,7 @@ namespace SchemaBuilder
 
         private void Postprocess(PostprocessArgs args, XmlSchemaSimpleType type)
         {
-            args.Info.TryGetType(type.Name, out var typeInfo);
+            args.Info.TryGetTypeByXmlName(type.Name, out var typeInfo);
             var typePatch = args.Patches.TypePatch(type.Name);
 
             var typeDoc = "";
@@ -154,7 +217,7 @@ namespace SchemaBuilder
 
         private void Postprocess(PostprocessArgs args, XmlSchemaComplexType type)
         {
-            args.Info.TryGetType(type.Name, out var typeInfo);
+            args.Info.TryGetTypeByXmlName(type.Name, out var typeInfo);
             var typePatch = args.Patches.TypePatch(type.Name);
 
             var typeDoc = "";
@@ -224,8 +287,17 @@ namespace SchemaBuilder
                         // polymorphism detection.
                         if (type.Name.StartsWith(PolymorphicArrayPrefix) && element.MaxOccursString == "unbounded")
                         {
-                            element.SchemaType = null;
-                            element.SchemaTypeName = new XmlQualifiedName(type.Name.Substring(PolymorphicArrayPrefix.Length));
+                            var rawTypeName = type.Name.Substring(PolymorphicArrayPrefix.Length);
+                            var matchingTypes = args.Info.GetTypesByName(rawTypeName).ToList();
+                            if (matchingTypes.Count == 1)
+                            {
+                                element.SchemaType = null;
+                                element.SchemaTypeName = new XmlQualifiedName(matchingTypes[0].XmlTypeName);
+                            }
+                            else
+                            {
+                                _log.LogWarning($"Failed to resolve polymorphic element type {rawTypeName}");
+                            }
                         }
 
 

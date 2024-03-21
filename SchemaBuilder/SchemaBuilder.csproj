@@ -52,6 +52,7 @@
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="SchemaGenerator.cs" />
+        <Compile Include="SerializationProxies.cs" />
         <Compile Include="XmlInfo.cs" />
     </ItemGroup>
     <ItemGroup>

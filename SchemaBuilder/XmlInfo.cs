@@ -6,24 +6,31 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Xml;
 using System.Xml.Serialization;
+using DocXml.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace SchemaBuilder
 {
     public sealed class XmlInfo
     {
-        private readonly List<XmlTypeInfo> _generatedTypes = new List<XmlTypeInfo>();
+        private readonly ILogger _log;
+        private readonly HashSet<XmlTypeInfo> _generatedTypes = new HashSet<XmlTypeInfo>();
         private readonly Dictionary<Type, XmlTypeInfo> _typeLookup = new Dictionary<Type, XmlTypeInfo>();
         private readonly Dictionary<string, XmlTypeInfo> _resolvedTypes = new Dictionary<string, XmlTypeInfo>();
         private XmlAttributeOverrides _overrides = new XmlAttributeOverrides();
         private bool _needsRepair;
 
         public IEnumerable<XmlTypeInfo> Generated => _generatedTypes;
+        public IEnumerable<XmlTypeInfo> AllTypes => _typeLookup.Values;
 
 
-        public void Generate(Type type)
+        public XmlTypeInfo Generate(Type type)
         {
-            _generatedTypes.Add(Lookup(type));
+            var info = Lookup(type);
+            _generatedTypes.Add(info);
+            return info;
         }
 
         public XmlTypeInfo Lookup(Type type)
@@ -44,11 +51,13 @@ namespace SchemaBuilder
 
         internal void BindTypeInfo(Type type, XmlTypeInfo info) => _typeLookup.Add(type, info);
 
-        public bool TryGetType(string xmlName, out XmlTypeInfo info)
+        public bool TryGetTypeByXmlName(string xmlName, out XmlTypeInfo info)
         {
             Overrides();
             return _resolvedTypes.TryGetValue(xmlName, out info);
         }
+
+        public IEnumerable<XmlTypeInfo> GetTypesByName(string typeName) => _typeLookup.Values.Where(x => x.Type.Name == typeName);
 
         public XmlAttributeOverrides Overrides()
         {
@@ -72,6 +81,7 @@ namespace SchemaBuilder
             foreach (var conflict in nameConflicts)
             {
                 if (conflict.Value.Count <= 1) continue;
+                _log.LogInformation($"Resolving conflict of name {conflict.Key} between {string.Join(", ", conflict.Value.Select(x => x.Type.FullName))}");
                 foreach (var type in conflict.Value)
                 {
                     var name = conflict.Key;
@@ -88,12 +98,36 @@ namespace SchemaBuilder
                 }
             }
 
+            // Fix up array layout types that had their contained element renamed.
+            foreach (var type in _typeLookup.Values)
+            foreach (var member in type.Members.Values)
+                if (member.IsArrayLike && (member.Attributes.XmlElements.Count == 0 || member.Attributes.XmlArrayItems.Count > 0))
+                {
+                    if (member.Attributes.XmlArrayItems.Count == 0)
+                        member.Attributes.XmlArrayItems.Add(new XmlArrayItemAttribute());
+                    foreach (var item in member.Attributes.XmlArrayItems.OfType<XmlArrayItemAttribute>())
+                    {
+                        // Already explicitly named.
+                        if (!string.IsNullOrEmpty(item.ElementName))
+                            continue;
+                        var itemType = item.Type != null ? Lookup(item.Type) : member.ReferencedTypes.Count == 1 ? member.ReferencedTypes[0] : null;
+                        if (itemType != null && itemType.OriginalXmlName != itemType.XmlTypeName)
+                        {
+                            _log.LogInformation(
+                                $"Fixing element name of implicit array element {itemType.Type.Name} in {type.Type}#{member.Member.Name} as {itemType.OriginalXmlName}");
+                            item.ElementName = itemType.OriginalXmlName;
+                        }
+                    }
+                }
+
             _resolvedTypes.Clear();
             _overrides = new XmlAttributeOverrides();
             foreach (var type in _typeLookup.Values)
             {
                 _overrides.Add(type.Type, type.Attributes);
                 _resolvedTypes.Add(type.XmlTypeName, type);
+                foreach (var member in type.Members.Values)
+                    _overrides.Add(type.Type, member.Member.Name, member.Attributes);
             }
 
             _needsRepair = false;
@@ -101,12 +135,8 @@ namespace SchemaBuilder
         }
 
         internal static string FirstNonEmpty(string prefer, string fallback) => string.IsNullOrEmpty(prefer) ? fallback : prefer;
-    }
 
-
-    public sealed class XmlTypeInfo
-    {
-        private static readonly HashSet<string> IgnoredTypes = new HashSet<string>
+        internal static readonly HashSet<string> IgnoredTypes = new HashSet<string>
         {
             "VRage.Game.MyDefinitionId",
             "VRage.ObjectBuilder.MyObjectBuilderType",
@@ -116,13 +146,23 @@ namespace SchemaBuilder
             typeof(Guid).FullName,
         };
 
+        public XmlInfo(ILogger log)
+        {
+            _log = log;
+        }
+    }
+
+
+    public sealed class XmlTypeInfo
+    {
         public readonly Type Type;
-        public readonly List<XmlMemberInfo> Members = new List<XmlMemberInfo>();
+        public readonly Dictionary<string, XmlMemberInfo> Members = new Dictionary<string, XmlMemberInfo>();
         public readonly XmlAttributes Attributes;
+        public readonly string OriginalXmlName;
 
         public bool TryGetAttribute(string attribute, out XmlMemberInfo member)
         {
-            foreach (var candidate in Members)
+            foreach (var candidate in Members.Values)
                 if (candidate.AttributeName == attribute)
                 {
                     member = candidate;
@@ -135,7 +175,7 @@ namespace SchemaBuilder
 
         public bool TryGetElement(string element, out XmlMemberInfo member)
         {
-            foreach (var candidate in Members)
+            foreach (var candidate in Members.Values)
                 if (candidate.ElementNames.Contains(element))
                 {
                     member = candidate;
@@ -152,18 +192,25 @@ namespace SchemaBuilder
         {
             Type = type;
             Attributes = new XmlAttributes(type);
+            OriginalXmlName = XmlTypeName;
             resolution.BindTypeInfo(type, this);
             if (!type.IsPrimitive
+                && !typeof(Enum).IsAssignableFrom(type)
                 && !typeof(IXmlSerializable).IsAssignableFrom(type)
-                && !IgnoredTypes.Contains(type.FullName))
+                && !XmlInfo.IgnoredTypes.Contains(type.FullName))
             {
-                Debug.Assert(type.FullName != null && !type.FullName.StartsWith("System."));
+                if (type.FullName == null || type.FullName.StartsWith("System."))
+                    Debug.Fail("Should not be resolving system types");
                 foreach (var member in type.GetMembers(BindingFlags.Instance | BindingFlags.Public))
                 {
                     if (member.GetCustomAttribute<XmlIgnoreAttribute>() == null
                         && member.GetCustomAttribute<CompilerGeneratedAttribute>() == null
                         && (member is PropertyInfo || member is FieldInfo))
-                        Members.Add(new XmlMemberInfo(resolution, member));
+                    {
+                        var name = member.Name;
+                        if (!Members.TryGetValue(name, out var existing) || existing.Member.DeclaringType!.IsAssignableFrom(member.DeclaringType))
+                            Members[name] = new XmlMemberInfo(resolution, member);
+                    }
                 }
             }
         }
@@ -172,13 +219,19 @@ namespace SchemaBuilder
     public sealed class XmlMemberInfo
     {
         public readonly MemberInfo Member;
+        public readonly XmlAttributes Attributes;
+
         public readonly bool IsPolymorphicElement;
         public readonly bool IsPolymorphicArrayItem;
         private readonly List<XmlTypeInfo> _referencedTypes = new List<XmlTypeInfo>();
+        private readonly List<XmlTypeInfo> _includedTypes = new List<XmlTypeInfo>();
         private readonly HashSet<string> _elementNames = new HashSet<string>();
         public IReadOnlyCollection<string> ElementNames => _elementNames;
         public IReadOnlyList<XmlTypeInfo> ReferencedTypes => _referencedTypes;
+        public IReadOnlyList<XmlTypeInfo> IncludedTypes => _includedTypes;
         public string AttributeName { get; private set; }
+
+        public bool IsArrayLike { get; private set; }
 
         private static bool IsPolymorphicSerializer(Type type)
         {
@@ -195,14 +248,14 @@ namespace SchemaBuilder
         public XmlMemberInfo(XmlInfo resolution, MemberInfo member)
         {
             Member = member;
-            var attributes = new XmlAttributes(member);
-            IsPolymorphicElement = attributes.XmlElements.Count == 1 && IsPolymorphicSerializer(attributes.XmlElements[0].Type);
-            IsPolymorphicArrayItem = attributes.XmlArrayItems.Count == 1 && IsPolymorphicSerializer(attributes.XmlArrayItems[0].Type);
-            if (attributes.XmlAttribute != null)
-                AttributeName = XmlInfo.FirstNonEmpty(attributes.XmlAttribute.AttributeName, member.Name);
+            Attributes = new XmlAttributes(member);
+            IsPolymorphicElement = Attributes.XmlElements.Count == 1 && IsPolymorphicSerializer(Attributes.XmlElements[0].Type);
+            IsPolymorphicArrayItem = Attributes.XmlArrayItems.Count == 1 && IsPolymorphicSerializer(Attributes.XmlArrayItems[0].Type);
+            if (Attributes.XmlAttribute != null)
+                AttributeName = XmlInfo.FirstNonEmpty(Attributes.XmlAttribute.AttributeName, member.Name);
             else
             {
-                var elements = attributes.XmlElements;
+                var elements = Attributes.XmlElements;
                 for (var i = 0; i < elements.Count; i++)
                     _elementNames.Add(XmlInfo.FirstNonEmpty(elements[i].ElementName, member.Name));
                 if (_elementNames.Count == 0)
@@ -215,27 +268,48 @@ namespace SchemaBuilder
                 FieldInfo field => field.FieldType,
                 _ => null
             };
-            CollectType(memberType);
+            if (Attributes.XmlDefaultValue != null && memberType != null)
+                Attributes.XmlDefaultValue = FixDefaultValue(Attributes.XmlDefaultValue, memberType);
+            if (memberType != null
+                && (SerializationProxies.ProxiesByType.TryGetValue(memberType, out var serializationProxy)
+                    || SerializationProxies.ProxiesByTypeName.TryGetValue(memberType.ToNameString(), out serializationProxy)))
+            {
+                if (Attributes.XmlElements.Count == 0)
+                    Attributes.XmlElements.Add(new XmlElementAttribute());
+                Attributes.XmlElements[0].Type = serializationProxy;
+                Attributes.XmlArrayItems.Clear();
+                return;
+            }
 
+            CollectType(_referencedTypes, memberType);
+            if (!IsPolymorphicElement && !IsPolymorphicArrayItem)
+            {
+                foreach (var element in Attributes.XmlElements.OfType<XmlElementAttribute>())
+                    if (element.Type != null)
+                        CollectType(_includedTypes, element.Type);
+                foreach (var element in Attributes.XmlArrayItems.OfType<XmlArrayItemAttribute>())
+                    if (element.Type != null)
+                        CollectType(_includedTypes, element.Type);
+            }
 
-            void CollectType(Type type)
+            void CollectType(List<XmlTypeInfo> target, Type type)
             {
                 if (type.IsGenericParameter)
                     return;
 
                 if (type.HasElementType)
                 {
-                    CollectType(type.GetElementType());
+                    CollectType(target, type.GetElementType());
                     return;
                 }
 
                 if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
-                    CollectType(type.GetGenericArguments()[0]);
+                    CollectType(target, type.GetGenericArguments()[0]);
                     return;
                 }
 
-                if (typeof(IEnumerable).IsAssignableFrom(type))
+                if (!type.IsPrimitive && !XmlInfo.IgnoredTypes.Contains(type.FullName) && typeof(IEnumerable).IsAssignableFrom(type))
                 {
                     var enumeratedType = type.GetMethods()
                         .Where(x => typeof(IEnumerator).IsAssignableFrom(x.ReturnType) && x.Name.EndsWith("GetEnumerator"))
@@ -243,13 +317,45 @@ namespace SchemaBuilder
                         .FirstOrDefault(x => x != null);
                     if (enumeratedType != null)
                     {
-                        CollectType(enumeratedType);
+                        IsArrayLike = true;
+                        CollectType(target, enumeratedType);
                         return;
                     }
                 }
 
-                _referencedTypes.Add(resolution.Lookup(type));
+                target.Add(resolution.Lookup(type));
             }
+        }
+
+        private static object FixDefaultValue(object value, Type memberType)
+        {
+            if (value.GetType() == memberType)
+                return value;
+            if (value is string && memberType.IsEnum)
+                return value;
+            var str = value.ToString();
+            if (memberType == typeof(byte))
+                return byte.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (byte)dbl : value;
+            if (memberType == typeof(sbyte))
+                return sbyte.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (sbyte)dbl : value;
+            if (memberType == typeof(short))
+                return short.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (short)dbl : value;
+            if (memberType == typeof(ushort))
+                return ushort.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (ushort)dbl : value;
+            if (memberType == typeof(int))
+                return int.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (int)dbl : value;
+            if (memberType == typeof(uint))
+                return uint.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (uint)dbl : value;
+            if (memberType == typeof(long))
+                return long.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (long)dbl : value;
+            if (memberType == typeof(ulong))
+                return ulong.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (ulong)dbl : value;
+            if (memberType == typeof(float))
+                return float.TryParse(str, out var val) ? val : double.TryParse(str, out var dbl) ? (float)dbl : value;
+            if (memberType == typeof(double))
+                return double.TryParse(str, out var val) ? val : value;
+
+            return value;
         }
     }
 }

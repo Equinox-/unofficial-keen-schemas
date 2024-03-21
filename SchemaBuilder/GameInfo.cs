@@ -12,6 +12,7 @@ namespace SchemaBuilder
 
         public readonly HashSet<string> PolymorphicBaseTypes = new HashSet<string>();
         public readonly HashSet<string> PolymorphicSubtypeAttribute = new HashSet<string>();
+        public readonly HashSet<string> SuppressedTypes = new HashSet<string>();
 
         private GameInfo()
         {
@@ -28,10 +29,14 @@ namespace SchemaBuilder
                 PolymorphicBaseTypes =
                 {
                     "VRage.Game.MyObjectBuilder_DefinitionBase, VRage.Game",
+                    "ObjectBuilders.GUI.MyObjectBuilder_ContextMenuAction, MedievalEngineers.ObjectBuilders",
+                    "ObjectBuilders.GUI.MyObjectBuilder_ContextMenuCondition, MedievalEngineers.ObjectBuilders",
+                    "ObjectBuilders.GUI.MyObjectBuilder_ContextMenuCondition, MedievalEngineers.ObjectBuilders",
                 },
                 PolymorphicSubtypeAttribute =
                 {
-                    "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute"
+                    "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute",
+                    "VRage.Serialization.Xml.MyXmlSerializableAttribute",
                 },
             },
             [Game.SE] = new GameInfo
@@ -46,7 +51,8 @@ namespace SchemaBuilder
                 },
                 PolymorphicSubtypeAttribute =
                 {
-                    "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute"
+                    "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute",
+                    "VRage.Serialization.Xml.MyXmlSerializableAttribute",
                 },
             }
         };
