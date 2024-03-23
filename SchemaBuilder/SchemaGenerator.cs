@@ -389,13 +389,13 @@ namespace SchemaBuilder
                             doc = _docs.GetMemberComment(attrMember.Member);
                         switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
                         {
-                            case InheritableYesNo.True:
+                            case InheritableTrueFalse.True:
                                 attr.Use = XmlSchemaUse.Optional;
                                 break;
-                            case InheritableYesNo.False:
+                            case InheritableTrueFalse.False:
                                 attr.Use = XmlSchemaUse.Required;
                                 break;
-                            case InheritableYesNo.Inherit:
+                            case InheritableTrueFalse.Inherit:
                             default:
                                 break;
                         }
@@ -456,13 +456,13 @@ namespace SchemaBuilder
 
                         switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
                         {
-                            case InheritableYesNo.True:
+                            case InheritableTrueFalse.True:
                                 element.MinOccurs = 0;
                                 break;
-                            case InheritableYesNo.False:
+                            case InheritableTrueFalse.False:
                                 element.MinOccurs = Math.Max(element.MinOccurs, 1);
                                 break;
-                            case InheritableYesNo.Inherit:
+                            case InheritableTrueFalse.Inherit:
                             default:
                                 break;
                         }

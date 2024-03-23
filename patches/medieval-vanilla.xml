@@ -11,6 +11,6 @@
     <SuppressedType>VRage.Game.MyObjectBuilder_ScenarioPreset</SuppressedType>
 
     <Type Name="MyObjectBuilder_DefinitionBase">
-        <Member Name="Id" MakeRequired="true" />
+        <Member Name="Id" Optional="false" />
     </Type>
 </Patches>

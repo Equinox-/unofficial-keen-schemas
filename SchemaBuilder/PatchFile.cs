@@ -20,7 +20,7 @@ namespace SchemaBuilder
         /// Should all possible elements be converted to optional.
         /// </summary>
         [XmlElement]
-        public InheritableYesNo AllOptional;
+        public InheritableTrueFalse AllOptional;
 
         /// <summary>
         /// Should all possible elements be converted to unordered.
@@ -75,24 +75,24 @@ namespace SchemaBuilder
 
     public static class PatchExt
     {
-        public static bool OrInherit(this InheritableYesNo self, bool super) => ((InheritableYesNo?)self).OrInherit(super);
+        public static bool OrInherit(this InheritableTrueFalse self, bool super) => ((InheritableTrueFalse?)self).OrInherit(super);
 
-        public static bool OrInherit(this InheritableYesNo? self, bool super) =>
-            self.OrInherit(super ? InheritableYesNo.True : InheritableYesNo.False) == InheritableYesNo.True;
+        public static bool OrInherit(this InheritableTrueFalse? self, bool super) =>
+            self.OrInherit(super ? InheritableTrueFalse.True : InheritableTrueFalse.False) == InheritableTrueFalse.True;
 
-        public static InheritableYesNo OrInherit(this InheritableYesNo self, InheritableYesNo super) => ((InheritableYesNo?)self).OrInherit(super);
+        public static InheritableTrueFalse OrInherit(this InheritableTrueFalse self, InheritableTrueFalse super) => ((InheritableTrueFalse?)self).OrInherit(super);
 
-        public static InheritableYesNo OrInherit(this InheritableYesNo? self, InheritableYesNo super) => self switch
+        public static InheritableTrueFalse OrInherit(this InheritableTrueFalse? self, InheritableTrueFalse super) => self switch
         {
             null => super,
-            InheritableYesNo.Inherit => super,
-            InheritableYesNo.True => InheritableYesNo.True,
-            InheritableYesNo.False => InheritableYesNo.False,
+            InheritableTrueFalse.Inherit => super,
+            InheritableTrueFalse.True => InheritableTrueFalse.True,
+            InheritableTrueFalse.False => InheritableTrueFalse.False,
             _ => throw new ArgumentOutOfRangeException(nameof(self), self, null)
         };
     }
 
-    public enum InheritableYesNo
+    public enum InheritableTrueFalse
     {
         [XmlEnum("inherit")]
         Inherit,
@@ -112,7 +112,7 @@ namespace SchemaBuilder
         public string Name;
 
         [XmlAttribute]
-        public InheritableYesNo Unordered;
+        public InheritableTrueFalse Unordered;
 
         [XmlElement]
         public string Documentation;
@@ -152,7 +152,7 @@ namespace SchemaBuilder
         public bool Delete;
 
         [XmlAttribute]
-        public InheritableYesNo Optional;
+        public InheritableTrueFalse Optional;
 
         [XmlElement]
         public string Documentation;

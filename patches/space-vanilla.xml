@@ -15,7 +15,7 @@
     <SuppressedType>VRage.Game.MyObjectBuilder_CubeBlock</SuppressedType>
 
     <Type Name="MyObjectBuilder_DefinitionBase">
-        <Member Name="Id" MakeRequired="true" />
+        <Member Name="Id" Optional="false" />
     </Type>
 
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
