@@ -44,7 +44,7 @@ namespace SchemaBuilder
                 var treeKey = baseTypes.Find(type.QualifiedName);
                 if (treeUnordered.TryGetValue(treeKey, out var okay) && !okay)
                     continue;
-                var shouldMake = ShouldMakeUnordered(args, type, treeSize[treeKey] > 1, allowXsd11);
+                var shouldMake = ShouldMakeUnordered(args, type, treeSize[treeKey] == 1, allowXsd11);
                 treeUnordered[treeKey] = shouldMake;
             }
 
@@ -84,19 +84,19 @@ namespace SchemaBuilder
             }
         }
 
-        private bool ShouldMakeUnordered(PostprocessArgs args, XmlSchemaComplexType type, bool allowSingleElementAggression, bool allowXsd11)
+        private bool ShouldMakeUnordered(PostprocessArgs args, XmlSchemaComplexType type, bool isIsolatedType, bool allowXsd11)
         {
             args.TypeData(type.Name, out _, out var typePatch);
             var unorderedRequest = (typePatch?.Unordered).OrInherit(args.Patches.AllUnordered);
             var wantsUnordered = unorderedRequest switch
             {
                 InheritableTrueFalseAggressive.Inherit => false,
-                InheritableTrueFalseAggressive.True => true,
-                InheritableTrueFalseAggressive.Aggressive => true,
+                InheritableTrueFalseAggressive.True => isIsolatedType,
+                InheritableTrueFalseAggressive.Aggressive => isIsolatedType,
                 InheritableTrueFalseAggressive.False => false,
                 _ => throw new ArgumentOutOfRangeException()
             };
-            var wantsAggression = unorderedRequest == InheritableTrueFalseAggressive.Aggressive;
+            var allowAggression = isIsolatedType && unorderedRequest == InheritableTrueFalseAggressive.Aggressive;
             if (!ShouldMakeUnorderedParticle(type.Particle))
                 return false;
 
@@ -116,11 +116,10 @@ namespace SchemaBuilder
                 {
                     XmlSchemaAny _ => false,
                     XmlSchemaAll _ => true,
-                    XmlSchemaChoice choice => wantsUnordered && choice.Items.Count == 1 &&
-                                              IsCompatibleWithAll(choice.Items[0], wantsAggression && allowSingleElementAggression),
-                    XmlSchemaElement element => wantsUnordered && IsCompatibleWithAll(element, wantsAggression && allowSingleElementAggression),
-                    XmlSchemaSequence sequence => wantsUnordered && sequence.Items.OfType<XmlSchemaObject>().All(x => IsCompatibleWithAll(x,
-                        wantsAggression && (allowSingleElementAggression || sequence.Items.Count > 1))),
+                    XmlSchemaChoice choice => wantsUnordered && choice.Items.Count == 1 && IsCompatibleWithAll(choice.Items[0], false),
+                    XmlSchemaElement element => wantsUnordered && IsCompatibleWithAll(element, false),
+                    XmlSchemaSequence sequence => wantsUnordered && sequence.Items.OfType<XmlSchemaObject>()
+                        .All(x => IsCompatibleWithAll(x, allowAggression && sequence.Items.Count > 1)),
                     XmlSchemaGroupBase _ => false,
                     XmlSchemaGroupRef _ => false,
                     null => true,
