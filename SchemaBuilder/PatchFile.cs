@@ -26,7 +26,7 @@ namespace SchemaBuilder
         /// Should all possible elements be converted to unordered.
         /// </summary>
         [XmlElement]
-        public bool AllUnordered;
+        public InheritableTrueFalseAggressive AllUnordered;
 
         /// <summary>
         /// Types to suppress discovering of subtypes from and suppress discovery of.
@@ -75,20 +75,14 @@ namespace SchemaBuilder
 
     public static class PatchExt
     {
-        public static bool OrInherit(this InheritableTrueFalse self, bool super) => ((InheritableTrueFalse?)self).OrInherit(super);
+        public static T OrInherit<T>(this T self, T super) where T : struct => ((T?)self).OrInherit(super);
 
-        public static bool OrInherit(this InheritableTrueFalse? self, bool super) =>
-            self.OrInherit(super ? InheritableTrueFalse.True : InheritableTrueFalse.False) == InheritableTrueFalse.True;
-
-        public static InheritableTrueFalse OrInherit(this InheritableTrueFalse self, InheritableTrueFalse super) => ((InheritableTrueFalse?)self).OrInherit(super);
-
-        public static InheritableTrueFalse OrInherit(this InheritableTrueFalse? self, InheritableTrueFalse super) => self switch
+        public static T OrInherit<T>(this T? self, T super) where T : struct => self switch
         {
             null => super,
             InheritableTrueFalse.Inherit => super,
-            InheritableTrueFalse.True => InheritableTrueFalse.True,
-            InheritableTrueFalse.False => InheritableTrueFalse.False,
-            _ => throw new ArgumentOutOfRangeException(nameof(self), self, null)
+            InheritableTrueFalseAggressive.Inherit => super,
+            _ => self.Value,
         };
     }
 
@@ -104,6 +98,21 @@ namespace SchemaBuilder
         False,
     }
 
+    public enum InheritableTrueFalseAggressive
+    {
+        [XmlEnum("inherit")]
+        Inherit,
+
+        [XmlEnum("true")]
+        True,
+
+        [XmlEnum("aggressive")]
+        Aggressive,
+
+        [XmlEnum("false")]
+        False,
+    }
+
     public class TypePatch
     {
         private readonly Dictionary<string, MemberPatch> _members = new Dictionary<string, MemberPatch>();
@@ -112,7 +121,7 @@ namespace SchemaBuilder
         public string Name;
 
         [XmlAttribute]
-        public InheritableTrueFalse Unordered;
+        public InheritableTrueFalseAggressive Unordered;
 
         [XmlElement]
         public string Documentation;

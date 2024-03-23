@@ -61,29 +61,56 @@ namespace SchemaBuilder
             // Run postprocessor
             var postprocessArgs = new PostprocessArgs { Info = info, Patches = patches, Schema = schema };
             Postprocess(postprocessArgs);
-            _postprocessUnordered.Postprocess(postprocessArgs, false);
             var namespaceUrl = "keen://" + cfg.Name.Substring(0, cfg.Name.IndexOf('-')) + "/" + cfg.Name.Substring(cfg.Name.IndexOf('-') + 1);
             schema.Namespaces.Add("", namespaceUrl);
             schema.TargetNamespace = namespaceUrl;
 
-            Directory.CreateDirectory("schemas");
+            var tempSchema = Path.GetTempFileName();
+            try
+            {
+                WriteSchema(schema, tempSchema);
 
-            // Write the schema with XSD 1.0 support.
-            using var stream = File.Open(Path.Combine("schemas", cfg.Name + ".xsd"), FileMode.Create, FileAccess.Write);
+                // Write the schema with XSD 1.0 support.
+                schema = postprocessArgs.Schema = ReadSchema(tempSchema);
+                _postprocessUnordered.Postprocess(postprocessArgs, false);
+                WriteSchema(schema, Path.Combine("schemas", cfg.Name + ".xsd"));
+
+                // Write the schema with XSD 1.1 support.
+                schema = postprocessArgs.Schema = ReadSchema(tempSchema);
+                _postprocessUnordered.Postprocess(postprocessArgs, true);
+                var schemaAttrs = schema.UnhandledAttributes;
+                Array.Resize(ref schemaAttrs, (schemaAttrs?.Length ?? 0) + 1);
+                schemaAttrs[schemaAttrs.Length - 1] = new XmlDocument().CreateAttribute("vc", "minVersion", "http://www.w3.org/2007/XMLSchema-versioning");
+                schemaAttrs[schemaAttrs.Length - 1].Value = "1.1";
+                schema.UnhandledAttributes = schemaAttrs;
+                WriteSchema(schema, Path.Combine("schemas", cfg.Name + ".11.xsd"));
+            }
+            finally
+            {
+                File.Delete(tempSchema);
+            }
+        }
+
+        private XmlSchema ReadSchema(string path)
+        {
+            using var stream = File.Open(path, FileMode.Open, FileAccess.Read);
+            var set = new XmlSchemaSet();
+            set.Add(XmlSchema.Read(stream, (_, args) =>
+            {
+                _log.LogWarning($"Validation failure when loading schema: {args.Severity} {args.Message}");
+            }));
+            set.Compile();
+            return set.Schemas().OfType<XmlSchema>().First();
+        }
+        
+        private void WriteSchema(XmlSchema schema, string path)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (dir != null)
+                Directory.CreateDirectory(dir);
+            using var stream = File.Open(path, FileMode.Create, FileAccess.Write);
             using var text = new StreamWriter(stream, Encoding.UTF8);
             schema.Write(text);
-
-            // Write the schema again, but with XSD 1.1 support.
-            // Re-run the unordered processor to properly create unordered collections for all sequences.
-            _postprocessUnordered.Postprocess(postprocessArgs, true);
-            var schemaAttrs = schema.UnhandledAttributes;
-            Array.Resize(ref schemaAttrs, (schemaAttrs?.Length ?? 0) + 1);
-            schemaAttrs[schemaAttrs.Length - 1] = new XmlDocument().CreateAttribute("vc", "minVersion", "http://www.w3.org/2007/XMLSchema-versioning");
-            schemaAttrs[schemaAttrs.Length - 1].Value = "1.1";
-            schema.UnhandledAttributes = schemaAttrs;
-            using var stream11 = File.Open(Path.Combine("schemas", cfg.Name + ".11.xsd"), FileMode.Create, FileAccess.Write);
-            using var text11 = new StreamWriter(stream11, Encoding.UTF8);
-            schema.Write(text11);
         }
 
         private void DiscoverTypes(

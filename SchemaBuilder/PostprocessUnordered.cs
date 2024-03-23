@@ -29,6 +29,14 @@ namespace SchemaBuilder
                     baseTypes.Union(type.QualifiedName, baseType);
             }
 
+            // Determine type tree size
+            var treeSize = new Dictionary<XmlQualifiedName, int>();
+            foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
+            {
+                var treeKey = baseTypes.Find(type.QualifiedName);
+                treeSize[treeKey] = (treeSize.TryGetValue(treeKey, out var size) ? size : 0) + 1;
+            }
+
             // Determine if type trees can be made unordered.
             var treeUnordered = new Dictionary<XmlQualifiedName, bool>();
             foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
@@ -36,13 +44,14 @@ namespace SchemaBuilder
                 var treeKey = baseTypes.Find(type.QualifiedName);
                 if (treeUnordered.TryGetValue(treeKey, out var okay) && !okay)
                     continue;
-                treeUnordered[treeKey] = ShouldMakeUnordered(args, type, allowXsd11);
+                var shouldMake = ShouldMakeUnordered(args, type, treeSize[treeKey] > 1, allowXsd11);
+                treeUnordered[treeKey] = shouldMake;
             }
 
             // Actually make the types unordered if possible.
             foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
                 if (treeUnordered[baseTypes.Find(type.QualifiedName)])
-                    MakeUnorderedType(type);
+                    MakeUnorderedType(type, allowXsd11);
         }
 
         private sealed class UnionFind
@@ -75,10 +84,19 @@ namespace SchemaBuilder
             }
         }
 
-        private bool ShouldMakeUnordered(PostprocessArgs args, XmlSchemaComplexType type, bool allowXsd11)
+        private bool ShouldMakeUnordered(PostprocessArgs args, XmlSchemaComplexType type, bool allowSingleElementAggression, bool allowXsd11)
         {
             args.TypeData(type.Name, out _, out var typePatch);
-            var wantsUnordered = (typePatch?.Unordered).OrInherit(args.Patches.AllUnordered);
+            var unorderedRequest = (typePatch?.Unordered).OrInherit(args.Patches.AllUnordered);
+            var wantsUnordered = unorderedRequest switch
+            {
+                InheritableTrueFalseAggressive.Inherit => false,
+                InheritableTrueFalseAggressive.True => true,
+                InheritableTrueFalseAggressive.Aggressive => true,
+                InheritableTrueFalseAggressive.False => false,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+            var wantsAggression = unorderedRequest == InheritableTrueFalseAggressive.Aggressive;
             if (!ShouldMakeUnorderedParticle(type.Particle))
                 return false;
 
@@ -98,9 +116,11 @@ namespace SchemaBuilder
                 {
                     XmlSchemaAny _ => false,
                     XmlSchemaAll _ => true,
-                    XmlSchemaChoice choice => wantsUnordered && choice.Items.Count == 1 && IsCompatibleWithAll(choice.Items[0]),
-                    XmlSchemaElement element => wantsUnordered && IsCompatibleWithAll(element),
-                    XmlSchemaSequence sequence => wantsUnordered && sequence.Items.OfType<XmlSchemaObject>().All(IsCompatibleWithAll),
+                    XmlSchemaChoice choice => wantsUnordered && choice.Items.Count == 1 &&
+                                              IsCompatibleWithAll(choice.Items[0], wantsAggression && allowSingleElementAggression),
+                    XmlSchemaElement element => wantsUnordered && IsCompatibleWithAll(element, wantsAggression && allowSingleElementAggression),
+                    XmlSchemaSequence sequence => wantsUnordered && sequence.Items.OfType<XmlSchemaObject>().All(x => IsCompatibleWithAll(x,
+                        wantsAggression && (allowSingleElementAggression || sequence.Items.Count > 1))),
                     XmlSchemaGroupBase _ => false,
                     XmlSchemaGroupRef _ => false,
                     null => true,
@@ -108,14 +128,14 @@ namespace SchemaBuilder
                 };
             }
 
-            bool IsCompatibleWithAll(XmlSchemaObject x)
+            bool IsCompatibleWithAll(XmlSchemaObject x, bool aggressive)
             {
-                return x is XmlSchemaElement e && (allowXsd11 || ((e.MinOccurs == 0 || e.MinOccurs == 1) && e.MaxOccurs == 1));
+                return x is XmlSchemaElement e && (allowXsd11 || ((e.MinOccurs == 0 || e.MinOccurs == 1) && (aggressive || e.MaxOccurs == 1)));
             }
         }
 
 
-        private void MakeUnorderedType(XmlSchemaComplexType type)
+        private void MakeUnorderedType(XmlSchemaComplexType type, bool allowXsd11)
         {
             type.Particle = MakeUnorderedParticle(type.Particle);
 
@@ -127,8 +147,8 @@ namespace SchemaBuilder
             XmlSchemaParticle MakeUnorderedParticle(XmlSchemaParticle particle) => particle switch
             {
                 XmlSchemaAll all => all,
-                XmlSchemaChoice choice => new XmlSchemaAll { Items = { choice.Items[0] } },
-                XmlSchemaElement element => new XmlSchemaAll { Items = { element } },
+                XmlSchemaChoice choice => new XmlSchemaAll { Items = { MakeUnorderedElement((XmlSchemaElement)choice.Items[0]) } },
+                XmlSchemaElement element => new XmlSchemaAll { Items = { MakeUnorderedElement(element) } },
                 XmlSchemaSequence sequence => MakeUnorderedSequence(sequence),
                 null => null,
                 _ => throw new ArgumentOutOfRangeException(nameof(particle))
@@ -138,8 +158,15 @@ namespace SchemaBuilder
             {
                 var all = new XmlSchemaAll();
                 foreach (var item in sequence.Items)
-                    all.Items.Add(item);
+                    all.Items.Add(MakeUnorderedElement((XmlSchemaElement)item));
                 return all;
+            }
+
+            XmlSchemaElement MakeUnorderedElement(XmlSchemaElement element)
+            {
+                if (!allowXsd11 && element.MaxOccurs > 1)
+                    element.MaxOccurs = 1;
+                return element;
             }
         }
     }
