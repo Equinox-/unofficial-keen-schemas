@@ -1,14 +1,32 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Patches>
     <AllOptional>true</AllOptional>
-    
+    <AllUnordered>true</AllUnordered>
+
+    <TypeAlias CSharpType="VRage.MyFixedPoint" XmlPrimitive="string" Pattern="^[0-9]{0,13}(\.[0-9]{0,6})?$" />
+
+    <!-- Suppress types that bring in the entire entity serialization tree.  It makes the schema way larger and is generally not useful. -->
+    <SuppressedType>VRage.Game.MyObjectBuilder_PrefabDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_ShipBlueprintDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_PlanetPrefabDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_ScenarioDefinition</SuppressedType>
+    <SuppressedType>VRage.ObjectBuilders.MyObjectBuilder_EntityBase</SuppressedType>
+    <SuppressedType>VRage.Game.ObjectBuilders.ComponentSystem.MyObjectBuilder_ComponentBase</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_CubeBlock</SuppressedType>
+
+    <Type Name="MyObjectBuilder_DefinitionBase">
+        <Member Name="Id" MakeRequired="true" />
+    </Type>
+
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
         <Member Name="BlockPairName">
             <Documentation>
                 Any string that you can use on 2 blocks to pair them into being toggled between grid sizes with R/same-number.
-                Should not be used on more than 1 block of each grid size and should not be omitted. The subtype without the size indicator is a good one to use.
+                Should not be used on more than 1 block of each grid size and should not be omitted. The subtype without the size indicator is a good one to
+                use.
                 Also used by BlockLimits in world settings (usable in DS GUI).
-                And also used by mechanical blocks (rotors/pistons/suspensions) as a target for &lt;RotorTop&gt;/etc instead of a subtypeId which is important for "Add small top" from terminal to work.
+                And also used by mechanical blocks (rotors/pistons/suspensions) as a target for &lt;RotorTop&gt;/etc instead of a subtypeId which is important
+                for "Add small top" from terminal to work.
             </Documentation>
         </Member>
     </Type>

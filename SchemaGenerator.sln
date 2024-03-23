@@ -4,9 +4,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUtils", "SteamUtils\St
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchemaBuilder", "SchemaBuilder\SchemaBuilder.csproj", "{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{F51A3B79-937D-4534-9EF5-1A27367439C2}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Config", "", "{F51A3B79-937D-4534-9EF5-1A27367439C2}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "patches", "patches", "{E470B92F-70E4-4515-8042-784D1894887D}"

@@ -15,7 +15,8 @@ namespace SchemaBuilder
 {
     public sealed class XmlInfo
     {
-        private readonly ILogger _log;
+        public readonly ILogger Log;
+        public readonly PatchFile Patch;
         private readonly HashSet<XmlTypeInfo> _generatedTypes = new HashSet<XmlTypeInfo>();
         private readonly Dictionary<Type, XmlTypeInfo> _typeLookup = new Dictionary<Type, XmlTypeInfo>();
         private readonly Dictionary<string, XmlTypeInfo> _resolvedTypes = new Dictionary<string, XmlTypeInfo>();
@@ -47,6 +48,19 @@ namespace SchemaBuilder
                 return info;
             _needsRepair = true;
             return new XmlTypeInfo(this, baseType);
+        }
+
+        public XmlTypeInfo LookupStructWithDefaults(Type type)
+        {
+            var (defaultType, defaultValues) = SerializationProxies.CreateDefaultingStructProxy(type);
+            if (_typeLookup.TryGetValue(defaultType, out var info))
+                return info;
+            _needsRepair = true;
+            info = new XmlTypeInfo(this, defaultType);
+            foreach (var prop in defaultValues)
+                if (info.Members.TryGetValue(prop.Key, out var propInfo))
+                    propInfo.Attributes.XmlDefaultValue = prop.Value;
+            return info;
         }
 
         internal void BindTypeInfo(Type type, XmlTypeInfo info) => _typeLookup.Add(type, info);
@@ -81,7 +95,7 @@ namespace SchemaBuilder
             foreach (var conflict in nameConflicts)
             {
                 if (conflict.Value.Count <= 1) continue;
-                _log.LogInformation($"Resolving conflict of name {conflict.Key} between {string.Join(", ", conflict.Value.Select(x => x.Type.FullName))}");
+                Log.LogInformation($"Resolving conflict of name {conflict.Key} between {string.Join(", ", conflict.Value.Select(x => x.Type.FullName))}");
                 foreach (var type in conflict.Value)
                 {
                     var name = conflict.Key;
@@ -113,7 +127,7 @@ namespace SchemaBuilder
                         var itemType = item.Type != null ? Lookup(item.Type) : member.ReferencedTypes.Count == 1 ? member.ReferencedTypes[0] : null;
                         if (itemType != null && itemType.OriginalXmlName != itemType.XmlTypeName)
                         {
-                            _log.LogInformation(
+                            Log.LogInformation(
                                 $"Fixing element name of implicit array element {itemType.Type.Name} in {type.Type}#{member.Member.Name} as {itemType.OriginalXmlName}");
                             item.ElementName = itemType.OriginalXmlName;
                         }
@@ -146,9 +160,10 @@ namespace SchemaBuilder
             typeof(Guid).FullName,
         };
 
-        public XmlInfo(ILogger log)
+        public XmlInfo(ILogger log, PatchFile patch)
         {
-            _log = log;
+            Log = log;
+            Patch = patch;
         }
     }
 
@@ -270,15 +285,22 @@ namespace SchemaBuilder
             };
             if (Attributes.XmlDefaultValue != null && memberType != null)
                 Attributes.XmlDefaultValue = FixDefaultValue(Attributes.XmlDefaultValue, memberType);
-            if (memberType != null
+
+            // Handle special serializers.
+            foreach (var element in Attributes.XmlElements.OfType<XmlElementAttribute>())
+                if (element.Type?.Name == "MyStructXmlSerializer`1")
+                    element.Type = resolution.LookupStructWithDefaults(element.Type.GetGenericArguments()[0]).Type;
+
+            if (memberType?.FullName != null
                 && (SerializationProxies.ProxiesByType.TryGetValue(memberType, out var serializationProxy)
-                    || SerializationProxies.ProxiesByTypeName.TryGetValue(memberType.ToNameString(), out serializationProxy)))
+                    || SerializationProxies.ProxiesByTypeName.TryGetValue(memberType.ToNameString(), out serializationProxy)
+                    || SerializationProxies.ProxiesByTypeName.TryGetValue(memberType.FullName, out serializationProxy)))
             {
                 if (Attributes.XmlElements.Count == 0)
                     Attributes.XmlElements.Add(new XmlElementAttribute());
                 Attributes.XmlElements[0].Type = serializationProxy;
                 Attributes.XmlArrayItems.Clear();
-                return;
+                memberType = serializationProxy;
             }
 
             CollectType(_referencedTypes, memberType);
@@ -324,6 +346,11 @@ namespace SchemaBuilder
                 }
 
                 target.Add(resolution.Lookup(type));
+
+                if (typeof(IXmlSerializable).IsAssignableFrom(type) && (type.FullName == null || !resolution.Patch.TypeAliases.ContainsKey(type.FullName)))
+                    resolution.Log.LogWarning($"Type {type} ({type.ToNameString()}) referenced by "
+                                              + $"{memberType} ({memberType.ToNameString()}) {Member.DeclaringType?.FullName}#{Member.Name}"
+                                              + " is using custom serialization. Introduce a serialization proxy or alias to resolve.");
             }
         }
 

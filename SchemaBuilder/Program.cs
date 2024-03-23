@@ -23,6 +23,8 @@ namespace SchemaBuilder
                     svc.AddSingleton<GameManager>();
                     svc.AddHostedService<GameManager>();
                     svc.AddSingleton<SchemaGenerator>();
+                    svc.AddSingleton<DocReader>();
+                    svc.AddSingleton<PostprocessUnordered>();
                 })
                 .Build();
             await host.StartAsync();

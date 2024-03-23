@@ -12,7 +12,6 @@ namespace SchemaBuilder
 
         public readonly HashSet<string> PolymorphicBaseTypes = new HashSet<string>();
         public readonly HashSet<string> PolymorphicSubtypeAttribute = new HashSet<string>();
-        public readonly HashSet<string> SuppressedTypes = new HashSet<string>();
 
         private GameInfo()
         {

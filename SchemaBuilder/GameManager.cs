@@ -9,7 +9,7 @@ namespace SchemaBuilder
 {
     public class GameManager : IHostedService
     {
-        private const bool Skip = false;
+        private const bool Skip = true;
 
         private readonly SteamDownloader _steam;
         private readonly ILogger<GameManager> _log;

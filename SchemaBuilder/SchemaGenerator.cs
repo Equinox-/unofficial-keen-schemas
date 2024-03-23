@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Schema;
 using System.Xml.Serialization;
-using LoxSmoke.DocXml;
 using Microsoft.Extensions.Logging;
 
 namespace SchemaBuilder
@@ -18,13 +17,15 @@ namespace SchemaBuilder
     {
         private readonly ILogger<SchemaGenerator> _log;
         private readonly GameManager _games;
-        private readonly DocXmlReader _docs;
+        private readonly DocReader _docs;
+        private readonly PostprocessUnordered _postprocessUnordered;
 
-        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log)
+        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log, PostprocessUnordered postprocessUnordered, DocReader docs)
         {
             _games = games;
             _log = log;
-            _docs = new DocXmlReader();
+            _postprocessUnordered = postprocessUnordered;
+            _docs = docs;
         }
 
         public async Task Generate(Configuration cfg)
@@ -44,29 +45,49 @@ namespace SchemaBuilder
 
             var patches = PatchFile.Read(Path.Combine("patches", cfg.Name + ".xml"));
 
-            var info = new XmlInfo(_log);
-            DiscoverTypes(info, gameInfo, Directory.GetFiles(gameBinaries, "*.dll", SearchOption.TopDirectoryOnly));
-            info.Generate(Type.GetType(gameInfo.RootType));
+            // Generate schema
+            var info = new XmlInfo(_log, patches);
+            DiscoverTypes(patches, info, gameInfo, Directory.GetFiles(gameBinaries, "*.dll", SearchOption.TopDirectoryOnly));
+            var schemas = GenerateInternal(info);
 
-            var schemas = GenerateInternal(info).OrderByDescending(x => x.Elements.Count)
-                .ToList();
+            // Compile schema
+            schemas.Compile((sender, args) => _log.LogInformation($"Schema validation {args}"), false);
             if (schemas.Count == 0)
                 throw new Exception("No schemas generated");
-            var schema = schemas[0];
             if (schemas.Count > 1)
                 _log.LogWarning("Generated multiple schemas, possibly causing issues");
-            Postprocess(new PostprocessArgs { Info = info, Patches = patches }, schema);
-            var namespaceUrl = "https://storage.googleapis.com/unofficial-keen-schemas/latest/" + cfg.Name + ".xsd";
+            var schema = schemas.OrderByDescending(x => x.Elements.Count).First();
+
+            // Run postprocessor
+            var postprocessArgs = new PostprocessArgs { Info = info, Patches = patches, Schema = schema };
+            Postprocess(postprocessArgs);
+            _postprocessUnordered.Postprocess(postprocessArgs, false);
+            var namespaceUrl = "keen://" + cfg.Name.Substring(0, cfg.Name.IndexOf('-')) + "/" + cfg.Name.Substring(cfg.Name.IndexOf('-') + 1);
             schema.Namespaces.Add("", namespaceUrl);
             schema.TargetNamespace = namespaceUrl;
 
             Directory.CreateDirectory("schemas");
+
+            // Write the schema with XSD 1.0 support.
             using var stream = File.Open(Path.Combine("schemas", cfg.Name + ".xsd"), FileMode.Create, FileAccess.Write);
             using var text = new StreamWriter(stream, Encoding.UTF8);
             schema.Write(text);
+
+            // Write the schema again, but with XSD 1.1 support.
+            // Re-run the unordered processor to properly create unordered collections for all sequences.
+            _postprocessUnordered.Postprocess(postprocessArgs, true);
+            var schemaAttrs = schema.UnhandledAttributes;
+            Array.Resize(ref schemaAttrs, (schemaAttrs?.Length ?? 0) + 1);
+            schemaAttrs[schemaAttrs.Length - 1] = new XmlDocument().CreateAttribute("vc", "minVersion", "http://www.w3.org/2007/XMLSchema-versioning");
+            schemaAttrs[schemaAttrs.Length - 1].Value = "1.1";
+            schema.UnhandledAttributes = schemaAttrs;
+            using var stream11 = File.Open(Path.Combine("schemas", cfg.Name + ".11.xsd"), FileMode.Create, FileAccess.Write);
+            using var text11 = new StreamWriter(stream11, Encoding.UTF8);
+            schema.Write(text11);
         }
 
         private void DiscoverTypes(
+            PatchFile patches,
             XmlInfo info,
             GameInfo gameInfo,
             IEnumerable<string> assemblies)
@@ -92,7 +113,7 @@ namespace SchemaBuilder
 
             foreach (var polymorphic in gameInfo.PolymorphicBaseTypes.Select(Type.GetType))
                 ConsiderPolymorphicBase(polymorphic, "game config");
-            ConsiderPolymorphicBasesFrom(info.Generate(Type.GetType(gameInfo.RootType)));
+            ConsiderPolymorphicBasesFrom(info.Lookup(Type.GetType(gameInfo.RootType)));
 
             while (polymorphicQueue.Count > 0)
             {
@@ -106,34 +127,36 @@ namespace SchemaBuilder
 
             void ConsiderPolymorphicBase(Type baseType, string via)
             {
+                if (patches.SuppressedTypes.Contains(baseType.FullName))
+                    return;
                 if (exploredBases.Add(baseType))
                     polymorphicQueue.Enqueue((baseType, via));
             }
 
             void ConsiderPolymorphicBasesFrom(XmlTypeInfo type)
             {
-                if (gameInfo.SuppressedTypes.Contains(type.Type.FullName))
+                if (patches.SuppressedTypes.Contains(type.Type.FullName) || !exploredBasesFrom.Add(type.Type))
                     return;
-                if (!exploredBasesFrom.Add(type.Type))
-                    return;
-                    
+
                 foreach (var member in type.Members.Values)
                 {
                     if (member.ReferencedTypes.Count == 1
-                        && (member.IsPolymorphicElement || member.IsPolymorphicArrayItem))
-                    {
+                        && (member.IsPolymorphicElement || member.IsPolymorphicArrayItem)) 
                         ConsiderPolymorphicBase(member.ReferencedTypes[0].Type, $"{type.Type.Name}#{member.Member.Name}");
-                    }
                 }
             }
 
             void ExplorePolymorphicBase(Type baseType, string via)
             {
-                _log.LogInformation($"Exploring polymorphic base type {baseType.Name} via {via}");
-                info.Generate(baseType);
+                info.Lookup(baseType);
+                var count = 0;
                 foreach (var type in polymorphicSubtypes)
-                    if (baseType.IsAssignableFrom(type) && !gameInfo.SuppressedTypes.Contains(type.FullName))
-                        info.Generate(type);
+                    if (baseType.IsAssignableFrom(type) && !patches.SuppressedTypes.Contains(type.FullName))
+                    {
+                        info.Lookup(type);
+                        count++;
+                    }
+                _log.LogInformation($"Exploring polymorphic base type {baseType.Name} via {via} found {count} types");
             }
         }
 
@@ -145,9 +168,11 @@ namespace SchemaBuilder
             var schemas = new XmlSchemas();
             var exporter = new XmlSchemaExporter(schemas);
 
-            foreach (var type in info.Generated)
+            foreach (var type in info.AllTypes)
                 try
                 {
+                    if (type.Type.IsGenericType)
+                        continue;
                     var mapping = importer.ImportTypeMapping(type.Type);
                     exporter.ExportTypeMapping(mapping);
                 }
@@ -156,29 +181,18 @@ namespace SchemaBuilder
                     _log.LogWarning(err, $"Failed to import schema for type {type.Type}");
                 }
 
-            schemas.Compile((sender, args) => _log.LogInformation($"Schema validation {args}"), false);
             return schemas;
         }
 
-        private class PostprocessArgs
+        private void Postprocess(PostprocessArgs args)
         {
-            public XmlInfo Info;
-            public PatchFile Patches;
-
-            public void TypeData(string typeName, out XmlTypeInfo typeInfo, out TypePatch typePatch)
-            {
-                Info.TryGetTypeByXmlName(typeName, out typeInfo);
-                typePatch = Patches.TypePatch(typeName);
-                if (typePatch == null && typeInfo != null)
-                    typePatch = Patches.TypePatch(typeInfo.Type.FullName);
-            }
-        }
-
-        private void Postprocess(PostprocessArgs args, XmlSchema schema)
-        {
-            foreach (var type in schema.SchemaTypes.Values)
+            AddTypes(args);
+            foreach (var type in args.Schema.SchemaTypes.Values)
                 Postprocess(args, (XmlSchemaObject)type);
+            foreach (var element in args.Schema.Elements.Values)
+                Postprocess(args, (XmlSchemaObject)element);
         }
+
 
         private void Postprocess(PostprocessArgs args, XmlSchemaObject type)
         {
@@ -190,6 +204,36 @@ namespace SchemaBuilder
                 case XmlSchemaComplexType complex:
                     Postprocess(args, complex);
                     break;
+                case XmlSchemaElement element:
+                    PostprocessTopLevelElement(args, element);
+                    break;
+            }
+        }
+
+        private void AddTypes(PostprocessArgs args)
+        {
+            foreach (var alias in args.Patches.TypeAliases.Values)
+            {
+                var type = CreateAlias(alias);
+                args.Schema.SchemaTypes.Add(new XmlQualifiedName(type.Name), type);
+                args.Schema.Items.Add(type);
+            }
+
+            return;
+
+            XmlSchemaSimpleType CreateAlias(TypeAlias alias)
+            {
+                var restriction = new XmlSchemaSimpleTypeRestriction
+                {
+                    BaseTypeName = alias.XmlPrimitiveType,
+                };
+                if (!string.IsNullOrEmpty(alias.Pattern))
+                    restriction.Facets.Add(new XmlSchemaPatternFacet { Value = alias.Pattern });
+                return new XmlSchemaSimpleType
+                {
+                    Name = alias.XmlName,
+                    Content = restriction
+                };
             }
         }
 
@@ -207,6 +251,16 @@ namespace SchemaBuilder
             });
         }
 
+        private void PostprocessTopLevelElement(PostprocessArgs args, XmlSchemaElement element)
+        {
+            if (!args.Info.TryGetTypeByXmlName(element.Name, out var xmlType)) return;
+            if (xmlType.Type.FullName != null && args.Patches.TypeAliases.TryGetValue(xmlType.Type.FullName, out var alias))
+            {
+                element.SchemaTypeName = new XmlQualifiedName(alias.XmlName);
+                element.SchemaType = null;
+            }
+        }
+
         private void Postprocess(PostprocessArgs args, XmlSchemaSimpleType type)
         {
             args.TypeData(type.Name, out var typeInfo, out var typePatch);
@@ -217,10 +271,68 @@ namespace SchemaBuilder
             if (!string.IsNullOrEmpty(typePatch?.Documentation))
                 typeDoc = typePatch.Documentation;
 
+            ProcessContent(type.Content);
+
             MaybeAttachDocumentation(type, typeDoc);
+            return;
+
+            void ProcessContent(XmlSchemaSimpleTypeContent content)
+            {
+                switch (content)
+                {
+                    case XmlSchemaSimpleTypeList list:
+                        ProcessList(list);
+                        break;
+                    case XmlSchemaSimpleTypeRestriction restriction:
+                        ProcessRestriction(restriction);
+                        break;
+                    case XmlSchemaSimpleTypeUnion union:
+                        ProcessUnion(union);
+                        break;
+                }
+            }
+
+            void ProcessList(XmlSchemaSimpleTypeList list) => ProcessContent(list.ItemType.Content);
+
+            void ProcessRestriction(XmlSchemaSimpleTypeRestriction restriction)
+            {
+                ProcessCollection<XmlSchemaFacet>(restriction.Facets, ProcessFacet);
+            }
+
+            void ProcessUnion(XmlSchemaSimpleTypeUnion union)
+            {
+                foreach (var member in union.BaseMemberTypes)
+                    ProcessContent(member.Content);
+            }
+
+            XmlSchemaFacet ProcessFacet(XmlSchemaFacet facet)
+            {
+                switch (facet)
+                {
+                    case XmlSchemaEnumerationFacet enumeration:
+                    {
+                        var memberPatch = typePatch?.MemberPatch(enumeration);
+                        if (memberPatch?.Delete ?? false)
+                            return null;
+
+                        var doc = "";
+                        var member = (MemberInfo)typeInfo?.Type.GetField(enumeration.Value) ?? typeInfo?.Type.GetProperty(enumeration.Value);
+                        if (member != null)
+                            doc = _docs.GetMemberComment(member);
+
+                        if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
+                        MaybeAttachDocumentation(enumeration, doc);
+
+                        return enumeration;
+                    }
+                    default:
+                        return facet;
+                }
+            }
         }
 
         private const string PolymorphicArrayPrefix = "ArrayOfMyAbstractXmlSerializerOf";
+
 
         private void Postprocess(PostprocessArgs args, XmlSchemaComplexType type)
         {
@@ -234,60 +346,91 @@ namespace SchemaBuilder
 
             MaybeAttachDocumentation(type, typeDoc);
 
-            foreach (var attribute in type.Attributes)
-                ProcessChild(attribute);
-            ProcessParticle(type.Particle);
+            ProcessChildren(type.Attributes);
+            type.Particle = ProcessParticle(type.Particle);
 
             if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
             {
-                foreach (var attribute in complexExt.Attributes)
-                    ProcessChild(attribute);
-                ProcessParticle(complexExt.Particle);
+                ProcessChildren(complexExt.Attributes);
+                complexExt.Particle = ProcessParticle(complexExt.Particle);
             }
 
+            return;
 
-            void ProcessParticle(XmlSchemaParticle particle)
+
+            XmlSchemaParticle ProcessParticle(XmlSchemaParticle particle)
             {
-                foreach (var item in particle switch
-                         {
-                             XmlSchemaElement element => new[] { element },
-                             XmlSchemaSequence sequence => sequence.Items.OfType<XmlSchemaObject>(),
-                             _ => Enumerable.Empty<XmlSchemaObject>()
-                         })
-                    ProcessChild(item);
+                switch (particle)
+                {
+                    case XmlSchemaElement element:
+                        return ProcessChild(element);
+                    case XmlSchemaGroupBase group:
+                        ProcessChildren(group.Items);
+                        return group;
+                    default:
+                        return particle;
+                }
             }
 
-            void ProcessChild(XmlSchemaObject item)
+            void ProcessChildren(XmlSchemaObjectCollection children) => ProcessCollection<XmlSchemaObject>(children, ProcessChild);
+
+            T ProcessChild<T>(T item) where T : XmlSchemaObject
             {
                 switch (item)
                 {
                     case XmlSchemaAttribute attr:
                     {
+                        var memberPatch = typePatch?.MemberPatch(attr);
+                        if (memberPatch?.Delete ?? false)
+                            return null;
+
                         var doc = "";
                         if (typeInfo != null && typeInfo.TryGetAttribute(attr.Name, out var attrMember))
                             doc = _docs.GetMemberComment(attrMember.Member);
+                        switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
+                        {
+                            case InheritableYesNo.True:
+                                attr.Use = XmlSchemaUse.Optional;
+                                break;
+                            case InheritableYesNo.False:
+                                attr.Use = XmlSchemaUse.Required;
+                                break;
+                            case InheritableYesNo.Inherit:
+                            default:
+                                break;
+                        }
 
-                        var memberPatch = typePatch?.MemberPatch(attr.Name);
-                        if (memberPatch?.MakeRequired ?? false)
-                            attr.Use = XmlSchemaUse.Required;
-                        else if ((memberPatch?.MakeOptional ?? false) || args.Patches.AllOptional)
-                            attr.Use = XmlSchemaUse.Optional;
                         if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
                         MaybeAttachDocumentation(attr, doc);
-                        break;
+                        return item;
                     }
                     case XmlSchemaElement element:
                     {
+                        var memberPatch = typePatch?.MemberPatch(element);
+                        if (memberPatch?.Delete ?? false)
+                            return null;
+
                         var doc = "";
                         if (element.IsNillable)
                             element.MinOccurs = 0;
                         if (typeInfo != null && typeInfo.TryGetElement(element.Name, out var eleMember))
                         {
                             doc = _docs.GetMemberComment(eleMember.Member);
-                            if (eleMember.IsPolymorphicElement && eleMember.ReferencedTypes.Count == 1)
+
+                            if (eleMember.ReferencedTypes.Count == 1)
                             {
-                                element.SchemaType = null;
-                                element.SchemaTypeName = new XmlQualifiedName(eleMember.ReferencedTypes[0].XmlTypeName);
+                                var singleReturnType = eleMember.ReferencedTypes[0];
+                                if (singleReturnType.Type.FullName != null &&
+                                    args.Patches.TypeAliases.TryGetValue(singleReturnType.Type.FullName, out var alias))
+                                {
+                                    element.SchemaTypeName = new XmlQualifiedName(alias.XmlName);
+                                    element.SchemaType = null;
+                                }
+                                else if (eleMember.ReferencedTypes.Count == 1 && eleMember.IsPolymorphicElement)
+                                {
+                                    element.SchemaType = null;
+                                    element.SchemaTypeName = new XmlQualifiedName(singleReturnType.XmlTypeName);
+                                }
                             }
                         }
 
@@ -308,18 +451,46 @@ namespace SchemaBuilder
                             }
                         }
 
+                        if (string.IsNullOrEmpty(element.SchemaTypeName?.Name))
+                            Debugger.Break();
 
-                        var memberPatch = typePatch?.MemberPatch(element.Name);
-                        if (memberPatch?.MakeRequired ?? false)
-                            element.MinOccurs = Math.Max(element.MinOccurs, 1);
-                        else if ((memberPatch?.MakeOptional ?? false) || args.Patches.AllOptional)
-                            element.MinOccurs = 0;
-                        if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
+                        switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
+                        {
+                            case InheritableYesNo.True:
+                                element.MinOccurs = 0;
+                                break;
+                            case InheritableYesNo.False:
+                                element.MinOccurs = Math.Max(element.MinOccurs, 1);
+                                break;
+                            case InheritableYesNo.Inherit:
+                            default:
+                                break;
+                        }
+
+                        if (!string.IsNullOrEmpty(memberPatch?.Documentation))
+                            doc = memberPatch.Documentation;
 
                         MaybeAttachDocumentation(element, doc);
-                        break;
+                        return item;
                     }
+                    default:
+                        return item;
                 }
+            }
+        }
+
+        private static void ProcessCollection<T>(XmlSchemaObjectCollection items, Func<T, T> func) where T : XmlSchemaObject
+        {
+            for (var i = items.Count - 1; i >= 0; i--)
+            {
+                var original = items[i] as T;
+                if (original == null)
+                    continue;
+                var replacement = func(original);
+                if (replacement == null)
+                    items.RemoveAt(i);
+                else if (replacement != original)
+                    items[i] = replacement;
             }
         }
     }
