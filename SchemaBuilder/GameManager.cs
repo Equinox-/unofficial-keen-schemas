@@ -15,7 +15,7 @@ namespace SchemaBuilder
     public class GameManager : IHostedService
     {
         private const int Workers = 4;
-        private const bool Skip = true;
+        private const bool Skip = false;
 
         private readonly SteamDownloader _steam;
         private readonly ILogger<GameManager> _log;
