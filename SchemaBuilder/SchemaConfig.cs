@@ -9,10 +9,29 @@ using System.Xml.Serialization;
 namespace SchemaBuilder
 {
     [XmlRoot("Patches")]
-    public class PatchFile
+    public class SchemaConfig : IInheritable<SchemaConfig>
     {
         private readonly Dictionary<string, TypePatch> _types = new Dictionary<string, TypePatch>();
         private readonly Dictionary<string, TypeAlias> _typeAliases = new Dictionary<string, TypeAlias>();
+
+        [XmlElement("Include")]
+        public List<string> Include = new List<string>();
+
+        [XmlElement]
+        public Game? GameOptional;
+
+        [XmlElement]
+        public Game Game
+        {
+            get => GameOptional ?? throw new Exception("Schema does not specify a game");
+            set => GameOptional = value;
+        }
+
+        [XmlElement]
+        public string SteamBranch;
+
+        [XmlElement("Mod")]
+        public readonly HashSet<ulong> Mods = new HashSet<ulong>();
 
         public IReadOnlyDictionary<string, TypeAlias> TypeAliases => _typeAliases;
 
@@ -63,15 +82,97 @@ namespace SchemaBuilder
 
         public TypePatch TypePatch(string name) => _types.TryGetValue(name, out var patch) ? patch : null;
 
-        public static readonly XmlSerializer Serializer = new XmlSerializer(typeof(PatchFile));
+        public static readonly XmlSerializer Serializer = new XmlSerializer(typeof(SchemaConfig));
 
-        public static PatchFile Read(string path)
+        public void InheritFrom(SchemaConfig other)
         {
-            using var stream = File.OpenRead(path);
-            var cfg = (PatchFile)Serializer.Deserialize(stream);
-            return cfg;
+            GameOptional ??= other.GameOptional;
+            if (GameOptional != null && other.GameOptional != null && Game != other.Game)
+                throw new Exception($"Attempting to inherit from schema for {other.Game} but this schema is for {Game}");
+            SteamBranch ??= other.SteamBranch;
+            AllOptional = AllOptional.OrInherit(other.AllOptional);
+            AllUnordered = AllUnordered.OrInherit(other.AllUnordered);
+            foreach (var suppressed in other.SuppressedTypes)
+                SuppressedTypes.Add(suppressed);
+            foreach (var mod in other.Mods)
+                Mods.Add(mod);
+
+            _types.OrInherit(other._types);
+
+            foreach (var alias in other._typeAliases)
+                if (!_typeAliases.ContainsKey(alias.Key))
+                    _typeAliases.Add(alias.Key, alias.Value);
+        }
+
+        public static SchemaConfig Read(string dir, string name)
+        {
+            var context = new Stack<string>();
+            var loadedFiles = new HashSet<string>();
+            var loaded = new List<SchemaConfig>();
+
+            ReadRecursive(name);
+
+            var final = loaded[0];
+            for (var i = 1; i < loaded.Count; i++)
+                final.InheritFrom(loaded[i]);
+
+            if (final.GameOptional == null)
+                throw new Exception($"Schema tree {name} does not specify a game ({string.Join(", ", loadedFiles)})");
+            if (final.SteamBranch == null)
+                throw new Exception($"Schema tree {name} does not specify a steam branch ({string.Join(", ", loadedFiles)})");
+            return final;
+
+            void ReadRecursive(string file)
+            {
+                if (file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                    file = file.Substring(0, file.Length - 4);
+                if (!loadedFiles.Add(file))
+                    return;
+
+                context.Push(Path.GetFileNameWithoutExtension(file));
+                try
+                {
+                    SchemaConfig cfg;
+                    try
+                    {
+                        using var stream = File.OpenRead(Path.Combine(dir, file + ".xml"));
+                        cfg = (SchemaConfig)Serializer.Deserialize(stream);
+                    }
+                    catch (Exception err)
+                    {
+                        throw new Exception($"Failed to load config file {file} via {string.Join(", ", context)}", err);
+                    }
+
+                    loaded.Add(cfg);
+                    foreach (var included in cfg.Include)
+                        ReadRecursive(included);
+                }
+                finally
+                {
+                    context.Pop();
+                }
+            }
         }
     }
+
+    public enum Game
+    {
+        [XmlEnum("medieval-engineers")]
+        MedievalEngineers,
+
+        [XmlEnum("space-engineers")]
+        SpaceEngineers,
+    }
+
+    public interface IInheritable<in T>
+    {
+        /// <summary>
+        /// Updates this instance with default values from the other instance.
+        /// This instance takes priority.
+        /// </summary>
+        void InheritFrom(T other);
+    }
+
 
     public static class PatchExt
     {
@@ -84,6 +185,15 @@ namespace SchemaBuilder
             InheritableTrueFalseAggressive.Inherit => super,
             _ => self.Value,
         };
+
+        public static void OrInherit<TK, TV>(this Dictionary<TK, TV> self, Dictionary<TK, TV> other) where TV : IInheritable<TV>
+        {
+            foreach (var item in other)
+                if (self.TryGetValue(item.Key, out var existing))
+                    existing.InheritFrom(item.Value);
+                else
+                    self.Add(item.Key, item.Value);
+        }
     }
 
     public enum InheritableTrueFalse
@@ -113,7 +223,7 @@ namespace SchemaBuilder
         False,
     }
 
-    public class TypePatch
+    public class TypePatch : IInheritable<TypePatch>
     {
         private readonly Dictionary<string, MemberPatch> _members = new Dictionary<string, MemberPatch>();
 
@@ -150,21 +260,35 @@ namespace SchemaBuilder
                 return patch;
             return _members.TryGetValue(name, out patch) ? patch : null;
         }
+
+        public void InheritFrom(TypePatch other)
+        {
+            Unordered = Unordered.OrInherit(other.Unordered);
+            Documentation ??= other.Documentation;
+            _members.OrInherit(other._members);
+        }
     }
 
-    public class MemberPatch
+    public class MemberPatch : IInheritable<MemberPatch>
     {
         [XmlAttribute]
         public string Name;
 
         [XmlAttribute]
-        public bool Delete;
+        public InheritableTrueFalse Delete;
 
         [XmlAttribute]
         public InheritableTrueFalse Optional;
 
         [XmlElement]
         public string Documentation;
+
+        public void InheritFrom(MemberPatch other)
+        {
+            Delete = Delete.OrInherit(other.Delete);
+            Optional = Optional.OrInherit(other.Optional);
+            Documentation ??= other.Documentation;
+        }
     }
 
     public class TypeAlias

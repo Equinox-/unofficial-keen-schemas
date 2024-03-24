@@ -32,19 +32,21 @@ jobs:
       # Restore game cache keys.
       - name: Generate game cache key
         id: game_cache_key
-        run: powershell -Command echo "key=game-cache-v1-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
+        run: powershell -Command echo "key=game-cache-v2-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
       - name: Cache Game Binaries
         uses: actions/cache@v3
         with:
           key: ${{ steps.game_cache_key.outputs.key }}
           restore-keys: |
-            game-cache-v1-
+            game-cache-v2-
           path: game/
       # Build Schemas
       - name: Generate vanilla SE schema
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe space-vanilla SE public
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe space-vanilla
       - name: Generate vanilla ME schema
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-vanilla ME communityedition
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-vanilla
+      - name: Generate modded ME schema
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-modded
       # Upload Schemas
       - name: Upload Schemas
         uses: actions/upload-artifact@v3

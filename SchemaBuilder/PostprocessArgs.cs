@@ -5,7 +5,7 @@ namespace SchemaBuilder
     public sealed class PostprocessArgs
     {
         public XmlInfo Info;
-        public PatchFile Patches;
+        public SchemaConfig Patches;
         public XmlSchema Schema;
 
         public void TypeData(string typeName, out XmlTypeInfo typeInfo, out TypePatch typePatch)

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Patches>
+    <Game>medieval-engineers</Game>
+    <SteamBranch>communityedition</SteamBranch>
+
+    <AllOptional>true</AllOptional>
+    <AllUnordered>true</AllUnordered>
+
+    <!-- Suppress types that bring in the entire entity serialization tree.  It makes the schema way larger and is generally not useful. -->
+    <SuppressedType>VRage.ObjectBuilders.Definitions.MyObjectBuilder_PrefabDefinition</SuppressedType>
+    <SuppressedType>VRage.ObjectBuilders.Definitions.MyObjectBuilder_ShipBlueprintDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_PlanetPrefabDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_ScenarioDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.MyObjectBuilder_ScenarioPreset</SuppressedType>
+
+    <Type Name="MyObjectBuilder_DefinitionBase">
+        <Member Name="Id" Optional="false" />
+    </Type>
+</Patches>

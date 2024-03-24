@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Patches>
+    <Include>medieval</Include>
+    <Mod>1367411991</Mod> <!-- equinox core -->
+    <Mod>3162631649</Mod> <!-- pax scripts -->
+    <Mod>1374827092</Mod> <!-- rails core -->
+</Patches>

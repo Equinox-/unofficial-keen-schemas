@@ -34,6 +34,7 @@ namespace SchemaService.SteamUtils
             set
             {
                 _files.Clear();
+                if (value == null) return;
                 foreach (var file in value)
                     _files[file.Path] = file;
             }

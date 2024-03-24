@@ -28,26 +28,20 @@ namespace SchemaBuilder
             _docs = docs;
         }
 
-        public async Task Generate(Configuration cfg)
+        public async Task Generate(string name)
         {
-            _log.LogInformation($"Generating schema {cfg.Name}");
+            _log.LogInformation($"Generating schema {name}");
 
-            var gameInfo = GameInfo.Games[cfg.Game];
-            var gameBinaries = await _games.RestoreGame(cfg.Game, cfg.GameBranch);
+            var config = SchemaConfig.Read("patches", name);
 
-            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-            {
-                var bin = Path.Combine(gameBinaries, args.Name + ".dll");
-                if (File.Exists(bin))
-                    return Assembly.LoadFrom(bin);
-                return null;
-            };
-
-            var patches = PatchFile.Read(Path.Combine("patches", cfg.Name + ".xml"));
+            var gameInfo = GameInfo.Games[config.Game];
+            var gameInstall = await _games.RestoreGame(config.Game, config.SteamBranch);
+            var modInstall = await gameInstall.LoadMods(config.Mods.ToArray());
 
             // Generate schema
-            var info = new XmlInfo(_log, patches);
-            DiscoverTypes(patches, info, gameInfo, Directory.GetFiles(gameBinaries, "*.dll", SearchOption.TopDirectoryOnly));
+            var info = new XmlInfo(_log, config);
+            DiscoverTypes(config, info, gameInfo, gameInstall.LoadAssemblies()
+                .Concat(modInstall.SelectMany(mod => mod.LoadAssemblies())));
             var schemas = GenerateInternal(info);
 
             // Compile schema
@@ -59,9 +53,9 @@ namespace SchemaBuilder
             var schema = schemas.OrderByDescending(x => x.Elements.Count).First();
 
             // Run postprocessor
-            var postprocessArgs = new PostprocessArgs { Info = info, Patches = patches, Schema = schema };
+            var postprocessArgs = new PostprocessArgs { Info = info, Patches = config, Schema = schema };
             Postprocess(postprocessArgs);
-            var namespaceUrl = "keen://" + cfg.Name.Substring(0, cfg.Name.IndexOf('-')) + "/" + cfg.Name.Substring(cfg.Name.IndexOf('-') + 1);
+            var namespaceUrl = "keen://" + name.Substring(0, name.IndexOf('-')) + "/" + name.Substring(name.IndexOf('-') + 1);
             schema.Namespaces.Add("", namespaceUrl);
             schema.TargetNamespace = namespaceUrl;
 
@@ -73,7 +67,7 @@ namespace SchemaBuilder
                 // Write the schema with XSD 1.0 support.
                 schema = postprocessArgs.Schema = ReadSchema(tempSchema);
                 _postprocessUnordered.Postprocess(postprocessArgs, false);
-                WriteSchema(schema, Path.Combine("schemas", cfg.Name + ".xsd"));
+                WriteSchema(schema, Path.Combine("schemas", name + ".xsd"));
 
                 // Write the schema with XSD 1.1 support.
                 schema = postprocessArgs.Schema = ReadSchema(tempSchema);
@@ -83,7 +77,7 @@ namespace SchemaBuilder
                 schemaAttrs[schemaAttrs.Length - 1] = new XmlDocument().CreateAttribute("vc", "minVersion", "http://www.w3.org/2007/XMLSchema-versioning");
                 schemaAttrs[schemaAttrs.Length - 1].Value = "1.1";
                 schema.UnhandledAttributes = schemaAttrs;
-                WriteSchema(schema, Path.Combine("schemas", cfg.Name + ".11.xsd"));
+                WriteSchema(schema, Path.Combine("schemas", name + ".11.xsd"));
             }
             finally
             {
@@ -95,14 +89,11 @@ namespace SchemaBuilder
         {
             using var stream = File.Open(path, FileMode.Open, FileAccess.Read);
             var set = new XmlSchemaSet();
-            set.Add(XmlSchema.Read(stream, (_, args) =>
-            {
-                _log.LogWarning($"Validation failure when loading schema: {args.Severity} {args.Message}");
-            }));
+            set.Add(XmlSchema.Read(stream, (_, args) => { _log.LogWarning($"Validation failure when loading schema: {args.Severity} {args.Message}"); }));
             set.Compile();
             return set.Schemas().OfType<XmlSchema>().First();
         }
-        
+
         private void WriteSchema(XmlSchema schema, string path)
         {
             var dir = Path.GetDirectoryName(path);
@@ -114,26 +105,15 @@ namespace SchemaBuilder
         }
 
         private void DiscoverTypes(
-            PatchFile patches,
+            SchemaConfig patches,
             XmlInfo info,
             GameInfo gameInfo,
-            IEnumerable<string> assemblies)
+            IEnumerable<Assembly> assemblies)
         {
-            var polymorphicSubtypes = assemblies.SelectMany(asmName =>
-            {
-                try
-                {
-                    var asm = Assembly.Load(Path.GetFileNameWithoutExtension(asmName));
-                    return asm.GetTypes()
-                        .Where(type => type.GetCustomAttributesData()
-                            .Any(x => gameInfo.PolymorphicSubtypeAttribute.Contains(x.AttributeType.FullName)));
-                }
-                catch
-                {
-                    // ignore assembly load errors.
-                    return Type.EmptyTypes;
-                }
-            }).ToList();
+            var polymorphicSubtypes = assemblies.SelectMany(asm => asm.GetTypes()
+                    .Where(type => type.GetCustomAttributesData()
+                        .Any(x => gameInfo.PolymorphicSubtypeAttribute.Contains(x.AttributeType.FullName))))
+                .ToList();
             var exploredBasesFrom = new HashSet<Type>();
             var exploredBases = new HashSet<Type>();
             var polymorphicQueue = new Queue<(Type, string)>();
@@ -168,7 +148,7 @@ namespace SchemaBuilder
                 foreach (var member in type.Members.Values)
                 {
                     if (member.ReferencedTypes.Count == 1
-                        && (member.IsPolymorphicElement || member.IsPolymorphicArrayItem)) 
+                        && (member.IsPolymorphicElement || member.IsPolymorphicArrayItem))
                         ConsiderPolymorphicBase(member.ReferencedTypes[0].Type, $"{type.Type.Name}#{member.Member.Name}");
                 }
             }
@@ -183,6 +163,7 @@ namespace SchemaBuilder
                         info.Lookup(type);
                         count++;
                     }
+
                 _log.LogInformation($"Exploring polymorphic base type {baseType.Name} via {via} found {count} types");
             }
         }
@@ -339,7 +320,7 @@ namespace SchemaBuilder
                     case XmlSchemaEnumerationFacet enumeration:
                     {
                         var memberPatch = typePatch?.MemberPatch(enumeration);
-                        if (memberPatch?.Delete ?? false)
+                        if (memberPatch?.Delete == InheritableTrueFalse.True)
                             return null;
 
                         var doc = "";
@@ -408,7 +389,7 @@ namespace SchemaBuilder
                     case XmlSchemaAttribute attr:
                     {
                         var memberPatch = typePatch?.MemberPatch(attr);
-                        if (memberPatch?.Delete ?? false)
+                        if (memberPatch?.Delete == InheritableTrueFalse.True)
                             return null;
 
                         var doc = "";
@@ -434,7 +415,7 @@ namespace SchemaBuilder
                     case XmlSchemaElement element:
                     {
                         var memberPatch = typePatch?.MemberPatch(element);
-                        if (memberPatch?.Delete ?? false)
+                        if (memberPatch?.Delete == InheritableTrueFalse.True)
                             return null;
 
                         var doc = "";

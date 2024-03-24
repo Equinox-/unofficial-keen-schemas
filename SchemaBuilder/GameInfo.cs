@@ -5,6 +5,7 @@ namespace SchemaBuilder
     public sealed class GameInfo
     {
         public string SteamBranch;
+        public uint SteamGameAppId;
         public uint SteamDedicatedAppId;
         public uint SteamDedicatedDepotId;
 
@@ -12,6 +13,7 @@ namespace SchemaBuilder
 
         public readonly HashSet<string> PolymorphicBaseTypes = new HashSet<string>();
         public readonly HashSet<string> PolymorphicSubtypeAttribute = new HashSet<string>();
+        public readonly List<string> BinaryPrefixes = new List<string>();
 
         private GameInfo()
         {
@@ -19,9 +21,10 @@ namespace SchemaBuilder
 
         public static readonly IReadOnlyDictionary<Game, GameInfo> Games = new Dictionary<Game, GameInfo>
         {
-            [Game.ME] = new GameInfo
+            [Game.MedievalEngineers] = new GameInfo
             {
                 SteamBranch = "communityedition",
+                SteamGameAppId = 333950,
                 SteamDedicatedAppId = 367970,
                 SteamDedicatedDepotId = 367971,
                 RootType = "VRage.ObjectBuilders.Definitions.MyObjectBuilder_Definitions, VRage.Game",
@@ -37,10 +40,17 @@ namespace SchemaBuilder
                     "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute",
                     "VRage.Serialization.Xml.MyXmlSerializableAttribute",
                 },
+                BinaryPrefixes =
+                {
+                    "MedievalEngineers",
+                    "Sandbox",
+                    "VRage"
+                }
             },
-            [Game.SE] = new GameInfo
+            [Game.SpaceEngineers] = new GameInfo
             {
                 SteamBranch = "public",
+                SteamGameAppId = 244850,
                 SteamDedicatedAppId = 298740,
                 SteamDedicatedDepotId = 298741,
                 RootType = "VRage.Game.MyObjectBuilder_Definitions, VRage.Game",
@@ -53,6 +63,12 @@ namespace SchemaBuilder
                     "VRage.ObjectBuilders.MyObjectBuilderDefinitionAttribute",
                     "VRage.Serialization.Xml.MyXmlSerializableAttribute",
                 },
+                BinaryPrefixes =
+                {
+                    "SpaceEngineers",
+                    "Sandbox",
+                    "VRage"
+                }
             }
         };
     }

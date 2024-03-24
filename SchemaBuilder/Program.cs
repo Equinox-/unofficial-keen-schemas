@@ -10,12 +10,6 @@ namespace SchemaBuilder
     {
         public static async Task Main(string[] args)
         {
-            var config = new Configuration
-            {
-                Name = args[0],
-                Game = (Game)Enum.Parse(typeof(Game), args[1]),
-                GameBranch = args[2]
-            };
             using var host = new HostBuilder()
                 .ConfigureServices(svc =>
                 {
@@ -31,7 +25,7 @@ namespace SchemaBuilder
             var schemas = host.Services.GetRequiredService<SchemaGenerator>();
             try
             {
-                await schemas.Generate(config);
+                await schemas.Generate(args[0]);
             }
             finally
             {

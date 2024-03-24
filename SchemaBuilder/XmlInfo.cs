@@ -2,11 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Xml;
 using System.Xml.Serialization;
 using DocXml.Reflection;
 using Microsoft.Extensions.Logging;
@@ -16,7 +14,7 @@ namespace SchemaBuilder
     public sealed class XmlInfo
     {
         public readonly ILogger Log;
-        public readonly PatchFile Patch;
+        public readonly SchemaConfig Patch;
         private readonly HashSet<XmlTypeInfo> _generatedTypes = new HashSet<XmlTypeInfo>();
         private readonly Dictionary<Type, XmlTypeInfo> _typeLookup = new Dictionary<Type, XmlTypeInfo>();
         private readonly Dictionary<string, XmlTypeInfo> _resolvedTypes = new Dictionary<string, XmlTypeInfo>();
@@ -44,10 +42,15 @@ namespace SchemaBuilder
                         Lookup(param);
             }
 
-            if (_typeLookup.TryGetValue(baseType, out var info))
-                return info;
-            _needsRepair = true;
-            return new XmlTypeInfo(this, baseType);
+            if (!_typeLookup.TryGetValue(baseType, out var info))
+            {
+                _needsRepair = true;
+                info = new XmlTypeInfo(this, baseType);
+            }
+
+            if (type.IsGenericType)
+                info.GenericSpecializations.Add(type);
+            return info;
         }
 
         public XmlTypeInfo LookupStructWithDefaults(Type type)
@@ -78,42 +81,45 @@ namespace SchemaBuilder
             if (!_needsRepair)
                 return _overrides;
 
-            var nameConflicts = new Dictionary<string, List<XmlTypeInfo>>();
+            XmlNameConflictResolver.ResolveConflicts(Log, this);
+
+            _resolvedTypes.Clear();
+            _overrides = new XmlAttributeOverrides();
             foreach (var type in _typeLookup.Values)
             {
-                var attrs = type.Attributes;
-
-                var baseTypeName = attrs.XmlType?.TypeName;
-                if (string.IsNullOrEmpty(baseTypeName))
-                    baseTypeName = type.Type.Name;
-
-                if (!nameConflicts.TryGetValue(baseTypeName, out var conflicts))
-                    nameConflicts.Add(baseTypeName, conflicts = new List<XmlTypeInfo>());
-                conflicts.Add(type);
+                _overrides.Add(type.Type, type.Attributes);
+                _resolvedTypes.Add(type.XmlTypeName, type);
+                foreach (var member in type.Members.Values)
+                    _overrides.Add(type.Type, member.Member.Name, member.Attributes);
             }
-
-            foreach (var conflict in nameConflicts)
+            
+            // Propagate name overrides for generic specializations
+            foreach (var type in AllTypes)
             {
-                if (conflict.Value.Count <= 1) continue;
-                Log.LogInformation($"Resolving conflict of name {conflict.Key} between {string.Join(", ", conflict.Value.Select(x => x.Type.FullName))}");
-                foreach (var type in conflict.Value)
-                {
-                    var name = conflict.Key;
-                    var declaring = type.Type.DeclaringType;
-                    while (declaring != null)
-                    {
-                        name = declaring.Name + "_" + name;
-                        declaring = declaring.DeclaringType;
-                    }
+                // Not specialized.
+                if (type.GenericSpecializations.Count == 0) continue;
+                var fixedName = type.Attributes.XmlType?.TypeName;
+                // No resolved conflicts.
+                if (fixedName == null) continue;
 
-                    var attrs = type.Attributes;
-                    attrs.XmlType ??= new XmlTypeAttribute();
-                    attrs.XmlType.TypeName = name;
+                foreach (var specialization in type.GenericSpecializations)
+                {
+                    var args = specialization.GetGenericArguments();
+                    var name = fixedName + "Of";
+                    foreach (var arg in args)
+                        if (_typeLookup.TryGetValue(arg, out var niceArg))
+                            name += niceArg.XmlTypeName;
+                        else
+                            name += arg.Name;
+                    _overrides.Add(specialization, new XmlAttributes
+                    {
+                        XmlType = new XmlTypeAttribute(name)
+                    });
                 }
             }
 
             // Fix up array layout types that had their contained element renamed.
-            foreach (var type in _typeLookup.Values)
+            foreach (var type in AllTypes)
             foreach (var member in type.Members.Values)
                 if (member.IsArrayLike && (member.Attributes.XmlElements.Count == 0 || member.Attributes.XmlArrayItems.Count > 0))
                 {
@@ -134,16 +140,6 @@ namespace SchemaBuilder
                     }
                 }
 
-            _resolvedTypes.Clear();
-            _overrides = new XmlAttributeOverrides();
-            foreach (var type in _typeLookup.Values)
-            {
-                _overrides.Add(type.Type, type.Attributes);
-                _resolvedTypes.Add(type.XmlTypeName, type);
-                foreach (var member in type.Members.Values)
-                    _overrides.Add(type.Type, member.Member.Name, member.Attributes);
-            }
-
             _needsRepair = false;
             return _overrides;
         }
@@ -160,7 +156,7 @@ namespace SchemaBuilder
             typeof(Guid).FullName,
         };
 
-        public XmlInfo(ILogger log, PatchFile patch)
+        public XmlInfo(ILogger log, SchemaConfig patch)
         {
             Log = log;
             Patch = patch;
@@ -170,7 +166,10 @@ namespace SchemaBuilder
 
     public sealed class XmlTypeInfo
     {
+        public readonly XmlTypeInfo BaseType;
         public readonly Type Type;
+        private readonly string _implicitXmlName;
+        public readonly HashSet<Type> GenericSpecializations = new HashSet<Type>();
         public readonly Dictionary<string, XmlMemberInfo> Members = new Dictionary<string, XmlMemberInfo>();
         public readonly XmlAttributes Attributes;
         public readonly string OriginalXmlName;
@@ -201,13 +200,19 @@ namespace SchemaBuilder
             return false;
         }
 
-        public string XmlTypeName => XmlInfo.FirstNonEmpty(Attributes.XmlType?.TypeName, Type.Name);
-
+        public string XmlTypeName => XmlInfo.FirstNonEmpty(Attributes.XmlType?.TypeName, _implicitXmlName);
+        
         public XmlTypeInfo(XmlInfo resolution, Type type)
         {
             Type = type;
+            _implicitXmlName = Type.Name;
+            var grave = _implicitXmlName.IndexOf('`');
+            if (grave > 0)
+                _implicitXmlName = _implicitXmlName.Substring(0, grave);
+
             Attributes = new XmlAttributes(type);
             OriginalXmlName = XmlTypeName;
+
             resolution.BindTypeInfo(type, this);
             if (!type.IsPrimitive
                 && !typeof(Enum).IsAssignableFrom(type)
@@ -216,6 +221,8 @@ namespace SchemaBuilder
             {
                 if (type.FullName == null || type.FullName.StartsWith("System."))
                     Debug.Fail("Should not be resolving system types");
+                if (type.BaseType != null && type.BaseType != typeof(object) && type.BaseType != typeof(ValueType))
+                    BaseType = resolution.Lookup(type.BaseType);
                 foreach (var member in type.GetMembers(BindingFlags.Instance | BindingFlags.Public))
                 {
                     if (member.GetCustomAttribute<XmlIgnoreAttribute>() == null
@@ -245,7 +252,6 @@ namespace SchemaBuilder
         public IReadOnlyList<XmlTypeInfo> ReferencedTypes => _referencedTypes;
         public IReadOnlyList<XmlTypeInfo> IncludedTypes => _includedTypes;
         public string AttributeName { get; private set; }
-
         public bool IsArrayLike { get; private set; }
 
         private static bool IsPolymorphicSerializer(Type type)
