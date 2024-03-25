@@ -271,6 +271,8 @@ namespace SchemaBuilder
 
         private void Postprocess(PostprocessArgs args, XmlSchemaSimpleType type)
         {
+            if (type.Name.Contains("AnimationWrapMode"))
+                Debugger.Break();
             args.TypeData(type.Name, out var typeInfo, out var typePatch);
 
             var typeDoc = "";

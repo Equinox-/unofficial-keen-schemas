@@ -78,12 +78,16 @@
         </PackageReference>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
         <PackageReference Include="SteamKit2" Version="2.5.0" />
-        <PackageReference Include="LoxSmoke.DocXml" Version="3.6.0" />
+<!--        <PackageReference Include="LoxSmoke.DocXml" Version="3.6.0" />-->
+        <Reference Include="$(ProjectDir)/DocXml.dll" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+    </ItemGroup>
+    <ItemGroup>
+      <Content Include="DocXml.dll" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
