@@ -10,6 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          lfs: 'true'
           submodules: 'true'
       - name: setup-msbuild
         uses: microsoft/setup-msbuild@v1.3.1
@@ -27,7 +28,7 @@ jobs:
       - name: Restore dependencies
         run: msbuild /p:Configuration=Release -t:restore SchemaGenerator.sln
       # Compile
-      - name: Build Shared
+      - name: Build
         run: msbuild /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
       # Restore game cache keys.
       - name: Generate game cache key
