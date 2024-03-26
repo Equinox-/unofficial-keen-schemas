@@ -55,9 +55,6 @@ namespace SchemaBuilder
             // Run postprocessor
             var postprocessArgs = new PostprocessArgs { Info = info, Patches = config, Schema = schema };
             Postprocess(postprocessArgs);
-            var namespaceUrl = "keen://" + name.Substring(0, name.IndexOf('-')) + "/" + name.Substring(name.IndexOf('-') + 1);
-            schema.Namespaces.Add("", namespaceUrl);
-            schema.TargetNamespace = namespaceUrl;
 
             var tempSchema = Path.GetTempFileName();
             try

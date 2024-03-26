@@ -4,8 +4,7 @@
 
 - Determine what editor you want to use from the [Editors](#editors) section
 - Determine what schema you want to use from the [Schemas](#schemas) section
-- Add the namespace to the root element of your *.sbc file (ex `<Definitions xmlns="keen://medieval/vanilla" ...`)
-- Associate the namespace with the URI of the schema file (ex `<Definitions xsi:schemaLocation="keen://medieval/vanilla SCHEMA_URI" ...`)
+- Add the URI of the schema file (ex `<Definitions xsi:noNamespaceSchemaLocation="keen://medieval/vanilla SCHEMA_URI" ...`)
     - Determine which schema file to use by matching against what XSD Version your editor supports
     - If your editor **does** support https:// schemas right click the XSD link, pick "Copy Link"
     - If your editor **doesn't** support https:// schemas right click the XSD link, pick "Save Link As", save the schema to disk, and construct a file
