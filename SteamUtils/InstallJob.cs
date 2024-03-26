@@ -31,6 +31,8 @@ namespace SchemaService.SteamUtils
             _log = log;
         }
 
+        public bool IsNoOp => _totalChunks == 0 && _neededChunks.Count == 0 && _fileParts.Count == 0 && _filesToDelete.Count == 0;
+
         public float ProgressRatio => Interlocked.Read(ref _finishedChunks) / (float)_totalChunks;
 
         public async Task Execute(SteamDownloader downloader, int workerCount = 8, Action<string> stateCallback = null)

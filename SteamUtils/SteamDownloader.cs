@@ -287,31 +287,43 @@ namespace SchemaService.SteamUtils
 
             var lockFile = Path.Combine(installPath, LockFile);
             var result = new InstallResult(new HashSet<string>());
+            Stream lockFileHandle = null;
             try
             {
-                using (File.Create(lockFile))
+                try
                 {
-                    // Get installation details from Steam
-                    var manifest = await GetManifestAsync(appId, depotId, manifestId, branch);
-
-                    var job = InstallJob.Upgrade(_log, appId, depotId, installPath, localCache, manifest, installFilter, result.InstalledFiles, installPrefix);
-                    using (var timer = new Timer(3000) { AutoReset = true })
-                    {
-                        timer.Elapsed += (sender, args) => _log.LogInformation($"{debugName} progress: {job.ProgressRatio:0.00%}");
-                        timer.Start();
-                        await job.Execute(this, workerCount);
-                    }
-
-
-                    using (var fs = File.Create(localCacheFile))
-                        DistFileCache.Serializer.Serialize(fs, localCache);
+                    lockFileHandle = File.Create(lockFile);
                 }
+                catch (Exception err)
+                {
+                    throw new InvalidOperationException(
+                        $"A job may already be in progress on this install ({debugName}).If you're sure there isn't one, delete {lockFile}",
+                        err);
+                }
+
+                // Get installation details from Steam
+                var manifest = await GetManifestAsync(appId, depotId, manifestId, branch);
+
+                var job = InstallJob.Upgrade(_log, appId, depotId, installPath, localCache, manifest, installFilter, result.InstalledFiles, installPrefix);
+                if (job.IsNoOp)
+                {
+                    _log.LogInformation($"Installing {debugName}, already up to date");
+                    return result;
+                }
+                using (var timer = new Timer(3000) { AutoReset = true })
+                {
+                    timer.Elapsed += (sender, args) => _log.LogInformation($"Installing {debugName} progress: {job.ProgressRatio:0.00%}");
+                    timer.Start();
+                    await job.Execute(this, workerCount);
+                }
+
+
+                using (var fs = File.Create(localCacheFile))
+                    DistFileCache.Serializer.Serialize(fs, localCache);
             }
-            catch (Exception err)
+            finally
             {
-                throw new InvalidOperationException(
-                    $"A job may already be in progress on this install ({debugName}).If you're sure there isn't one, delete {lockFile}",
-                    err);
+                lockFileHandle?.Dispose();
             }
 
             return result;
