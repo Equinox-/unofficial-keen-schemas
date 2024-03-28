@@ -4,7 +4,7 @@
 
 - Determine what editor you want to use from the [Editors](#editors) section
 - Determine what schema you want to use from the [Schemas](#schemas) section
-- Add the URI of the schema file (ex `<Definitions xsi:noNamespaceSchemaLocation="keen://medieval/vanilla SCHEMA_URI" ...`)
+- Add the URI of the schema file (ex `<Definitions xsi:noNamespaceSchemaLocation="SCHEMA_URI" ...`)
     - Determine which schema file to use by matching against what XSD Version your editor supports
     - If your editor **does** support https:// schemas right click the XSD link, pick "Copy Link"
     - If your editor **doesn't** support https:// schemas right click the XSD link, pick "Save Link As", save the schema to disk, and construct a file
@@ -13,11 +13,11 @@
 
 ## Schemas
 
-| Game               | Variant                                   | Namespace                 | XSD 1.0 URL                                                                                   | XSD 1.1 URL                                                                                      |
-|--------------------|-------------------------------------------|---------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Medieval Engineers | Vanilla                                   | `keen://medieval/vanilla` | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-vanilla.xsd) | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-vanilla.11.xsd) |
-| Medieval Engineers | Equinox Core<br>Rails Core<br>PAX Scripts | `keen://medieval/modded`  | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd)  | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.11.xsd)  |
-| Space Engineers    | Vanilla                                   | `keen://space/vanilla`    | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/space-vanilla.xsd)    | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/space-vanilla.11.xsd)    |
+| Game               | Variant                                   | XSD 1.0 URL                                                                                   | XSD 1.1 URL                                                                                      |
+|--------------------|-------------------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Medieval Engineers | Vanilla                                   | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-vanilla.xsd) | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-vanilla.11.xsd) |
+| Medieval Engineers | Equinox Core<br>Rails Core<br>PAX Scripts | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.xsd)  | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/medieval-modded.11.xsd)  |
+| Space Engineers    | Vanilla                                   | [XSD 1.0](https://storage.googleapis.com/unofficial-keen-schemas/latest/space-vanilla.xsd)    | [XSD 1.1](https://storage.googleapis.com/unofficial-keen-schemas/latest/space-vanilla.11.xsd)    |
 
 ## Editors
 
