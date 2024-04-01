@@ -34,7 +34,7 @@ namespace SchemaBuilder
             if (outputFiles != null)
                 foreach (var output in outputFiles)
                     current.UpdateFromDisk(output, previous);
-            var differences = previous.Differences(current);
+            var differences = previous.Differences(current, true);
             if (differences.Count == 0)
             {
                 log.LogInformation($"[Skip] {taskName}");
@@ -98,15 +98,19 @@ namespace SchemaBuilder
                 return this;
             }
 
-            public List<string> Differences(Fingerprints other)
+            public List<string> Differences(Fingerprints other, bool relativeDifferences)
             {
                 var changes = new List<string>();
                 foreach (var kv in other._state)
                     if (!_state.TryGetValue(kv.Key, out var fingerprint) || !fingerprint.Equals(kv.Value))
-                        changes.Add(Path.GetFullPath(Path.Combine(_fingerprintParent, kv.Key)));
+                        changes.Add(kv.Key);
                 foreach (var key in _state.Keys)
                     if (!other._state.ContainsKey(key))
-                        changes.Add(Path.GetFullPath(Path.Combine(_fingerprintParent, key)));
+                        changes.Add(key);
+                if (relativeDifferences)
+                    return changes;
+                for (var i = 0; i < changes.Count; i++)
+                    changes[i] = Path.GetFullPath(Path.Combine(_fingerprintParent, changes[i]));
                 return changes;
             }
 
