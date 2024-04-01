@@ -78,7 +78,7 @@
         </PackageReference>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
         <PackageReference Include="SteamKit2" Version="2.5.0" />
-        <PackageReference Include="LoxSmoke.DocXml" Version="3.6.0" />
+        <PackageReference Include="LoxSmoke.DocXml" Version="3.6.1" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
