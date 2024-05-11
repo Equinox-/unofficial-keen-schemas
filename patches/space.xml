@@ -17,20 +17,319 @@
     <SuppressedType>VRage.Game.ObjectBuilders.ComponentSystem.MyObjectBuilder_ComponentBase</SuppressedType>
     <SuppressedType>VRage.Game.MyObjectBuilder_CubeBlock</SuppressedType>
 
-    <Type Name="MyObjectBuilder_DefinitionBase">
-        <Member Name="Id" Optional="false" />
-    </Type>
-
-    <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
-        <Member Name="BlockPairName">
+    <Type Name="VRage.ObjectBuilders.MyObjectBuilder_DefinitionBase">
+        <Member Name="Enabled"> <!-- attribute -->
             <Documentation>
-                Any string that you can use on 2 blocks to pair them into being toggled between grid sizes with R/same-number.
-                Should not be used on more than 1 block of each grid size and should not be omitted. The subtype without the size indicator is a good one to
-                use.
-                Also used by BlockLimits in world settings (usable in DS GUI).
-                And also used by mechanical blocks (rotors/pistons/suspensions) as a target for &lt;RotorTop&gt;/etc instead of a subtypeId which is important
-                for "Add small top" from terminal to work.
+                Defaults true.
+                If set to false it will remove the definition matching its &lt;Id&gt; from the game.
+            </Documentation>
+        </Member>
+        <Member Name="Id" Optional="false">
+            <Documentation>
+                The type and subtype combined make up a unique identifier for this definition.
+                If an ID already exists then the game will override it or in case of &lt;Environment&gt; it will merge elements.
+                
+                &lt;BlockCategories&gt; is the exception where the subtype does not matter, it instead uses the &lt;Name&gt; element.
+            </Documentation>
+        </Member>
+        <Member Name="Icon">
+            <Documentation>
+                Icon(s) for the definition which may or may not be used depending on the definition type.
+                
+                Multiple of this element can be used which will stack the icons on top of eachother (last is rendered on top).
+                
+                Relative path in the mod folder. Falls back to searching in game folder if not found in current mod.
+                Does not work to find assets in other mods unless you go back a level (..\) and into a different mod by its workshopId.
             </Documentation>
         </Member>
     </Type>
+    
+    <Type Name="VRage.ObjectBuilders.SerializableDefinitionId">
+        <Member Name="TypeId">
+            <Documentation>
+                Must be an existing ObjectBuilder type that exists in the game code.
+                WARNING: To avoid issues do not change a definition's TypeId. Instead copy a full definition from vanilla sbc, of the new type you need.
+                The "MyObjectBuilder_" prefix is optional.
+            </Documentation>
+        </Member>
+        <Member Name="Type"> <!-- attribute -->
+            <Documentation>
+                Must be an existing ObjectBuilder type that exists in the game code.
+                WARNING: To avoid issues do not change a definition's TypeId. Instead copy a full definition from vanilla sbc, of the new type you need.
+                The "MyObjectBuilder_" prefix is optional.
+            </Documentation>
+        </Member>
+        <Member Name="SubtypeId">
+            <Documentation>
+                A made up name that represents half of the identifier for this definition.
+                Subtypes are only unique per TypeId, they do not collide/override over different TypeIds.
+                Empty value is also a valid value.
+            </Documentation>
+        </Member>
+        <Member Name="Subtype"> <!-- attribute -->
+            <Documentation>
+                A made up name that represents half of the identifier for this definition.
+                Subtypes are only unique per TypeId, they do not collide/override over different TypeIds.
+                Empty value is also a valid value.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
+        <Member Name="DisplayName" Optional="false">
+            <Documentation>
+                Required!
+                Can be a localization key (from the .resx files) or a plain-text name.
+            </Documentation>
+        </Member>
+        <Member Name="Description">
+            <Documentation>
+                Can be a localization key (from the .resx files) or a plain-text description text.
+            </Documentation>
+        </Member>
+        <Member Name="DescriptionArgs">
+            <Documentation>
+                A comma-separated list of control IDs which are referenced in Description by {number}.
+                These then get replaced by the actual bind that the viewer has for those controls.
+                Example:
+                  Description: Press {0} to fire, {1} to change color, {2} to interact.
+                  DescriptionArgs: PRIMARY_TOOL_ACTION,CUBE_COLOR_CHANGE,USE
+            </Documentation>
+        </Member>
+        <Member Name="BlockPairName">
+            <Documentation>
+                Any string. If left empty will default to DisplayName.
+                Recommended to use the subtypeId without the grid size prefix/suffix.
+                If a smallgrid and a largegrid block use the same pair name they get paired.
+                Do not use the same name on more than one block per grid size, they will get lost in the void.
+                Paired blocks means:
+                - Grid size switching with R key (or pressing number in toolbar again).
+                - BlockLimits in world settings use this to point to blocks instead of SubtypeId.
+                - Mechanical blocks (rotors/pistons/suspensions)'s &lt;RotorTop&gt;/etc tags point to pair name, not SubtypeId.
+            </Documentation>
+        </Member>
+        <Member Name="CriticalComponent" Optional="false">
+            <Documentation>
+                The component that defines the red line where the block becomes functional.
+                Required to be valid or game will crash.
+            </Documentation>
+        </Member>
+        <Member Name="GuiVisible">
+            <Documentation>
+                Decides if the block shows up in All Blocks.
+                Default: true
+                NOTE: gets overwritten if the block is part of a BlockVariantGroups, primary block will get true and the rest will get false.
+            </Documentation>
+        </Member>
+        <Member Name="Center">
+            <Documentation>
+                Defines the cell where the block is pivoted from when placing.
+                WARNING: It should not be equal or larger than &lt;Size&gt;'s respective X/Y/Z values, or you end up with very weird bugs.
+                If not defined it will get calculated to a center-enough cell.
+            </Documentation>
+        </Member>
+        <Member Name="HasPhysics">
+            <Documentation>
+                If false, makes the block not have any collision, also does not provide mass to the grid.
+                Default: true
+            </Documentation>
+        </Member>
+        <Member Name="IsStandAlone">
+            <Documentation>
+                If false, a grid cannot exist if it only has this block (or multiple blocks that also have this false).
+                e.g. Removing an armor block that holds this block (which has IsStandAlone=false) would make this block vanish.
+                NOTE: If &lt;HasPhysics&gt; is false then &lt;IsStandAlone&gt; should also be false! Otherwise you end up with non-grindable floating blocks.
+                Default: true
+            </Documentation>
+        </Member>
+        <Member Name="DeformationRatio">
+            <Documentation>
+                Has multiple uses in game code:
+                - Damage from other thrusters: if it's &lt;= 0.25 then the block doesn't get damaged by SmallGrid thrusters (LargeGrid ones damage everything).
+                - For volumetric explosions: this multiplied by GeneralDamageMultiplier is used to divide block's integrity by it and then checks
+                    against some damage value (unclear if the raw one) before deciding if it gets deleted.
+                    Also this is before DamageMultiplierExplosion is applied to the damage (which considering its default value makes it important).
+                - For armor deformations: gets used as a multiplier of sorts.
+                Default: 1.0
+            </Documentation>
+        </Member>
+        <Member Name="DisassembleRatio">
+            <Documentation>
+                A multiplier to grinding time.
+                Grinding is by default 2 times slower therefore a value of 2 here would make it identical to weld time.
+                Default: 1.0
+            </Documentation>
+        </Member>
+        <Member Name="GeneralDamageMultiplier">
+            <Documentation>
+                A multiplier to absolutely all damage received by this block (including explosions).
+                Default: 1.0
+            </Documentation>
+        </Member>
+        <Member Name="DamageMultiplierExplosion">
+            <Documentation>
+                A multiplier to explosion damage received by this block in some cases, see DeformationRatio's documentation.
+                Default: 7.0
+            </Documentation>
+        </Member>
+        <Member Name="EnableUseObjectSimpleTargeting">
+            <Documentation>
+                Affects how subparts are aimable by character:
+                - True uses an oriented bounding box over the subpart.
+                - False uses the subpart model.
+                Default: false
+            </Documentation>
+        </Member>
+        <Member Name="UseModelIntersection">
+            <Documentation>
+                Affects multiple things:
+                - Holding this block to place:
+                --- false would collide with nearby objects using the boundingbox.
+                --- true would use the visual model which allows tighter fit with nearby entities.
+                - Placing something else on this block:
+                --- false would use a mix of collider+model to determine if you're aiming at it.
+                --- true uses only the visual model.
+                Downside of 'true' is that you'll have a harder time aiming at some models (e.g. conveyor tube being hollow will require you to aim at the frame).
+                Default: false
+            </Documentation>
+        </Member>
+        <Member Name="EdgeType">
+            <Documentation>
+                Usable by deformable armor to provide the model set for edges.
+                See Edges.sbc for values (their subtypes).
+                Default: (empty)
+            </Documentation>
+        </Member>
+        <Member Name="AimingOffset">
+            <Documentation>
+                Offsets where other blocks aim on this block.
+                For example it's used by vanilla artillery because it's shorter than the boundingbox center so turrets would miss trying to shoot it.
+                Default: (null)
+            </Documentation>
+        </Member>
+        <Member Name="IsAirTight">
+            <Documentation>
+                Affects how the block is perceived by pressurization system:
+                - null (undeclared): uses mount points to define airtight sides (if they cover a full cell face then that face becomes airtight).
+                - true: makes block airtight on all sides.
+                - false (default): makes block not airtight at all.
+            </Documentation>
+        </Member>
+        <Member Name="BlockTopology">
+            <Documentation>
+                Cube makes it require the &lt;CubeDefinition&gt; which defines multiple models to make up a deformable block.
+                  This also removes the need for a &lt;Model&gt; element but it can still be used to have both.
+                
+                TriangleMesh is the one most blocks use, requires &lt;Model&gt; element. 
+                
+                Default: Cube therefore it is not recommended to omit it.
+            </Documentation>
+        </Member>
+        <Member Name="CubeSize">
+            <Documentation>
+                The size of grid it officially is allowed on.
+                NOTE: Can still be used on the other grid size if world has "supergriding" setting enabled (it's off by default).
+                Defaults to Large.
+            </Documentation>
+        </Member>
+        <Member Name="PCU">
+            <Documentation>
+                The Performance-Cost-Unit this block will use from the player when built.
+                Should use the same number that vanilla block of the same type uses, even higher if you're for example making it harder to compute.
+            </Documentation>
+        </Member>
+        <Member Name="PCUConsole">
+            <Documentation>
+                This value is used instead of PCU if the server is console-compatible.
+                Refer to &lt;PCU&gt; for details.
+                Defaults to empty.
+            </Documentation>
+        </Member>
+        <Member Name="TieredUpdateTimes">
+            <Documentation>
+                NOTE: This impacts performance, recommended to use the same values that the vanilla type uses (if present).
+                Defines how fast the block updates, only available on certain block types.
+                
+                The &lt;unsignedInt&gt; elements in order are the tiers:
+                1. Normal - local player is nearby or grid streamed to at least one player.
+                2. Tier1 - local player not nearby and grid is not streamed to anyone.
+                3. Tier2 - same as Tier1 but 10 minutes passed since it was set to Tier1.
+                
+                Defaults to empty.
+            </Documentation>
+        </Member>
+        <Member Name="TargetingGroups">
+            <Documentation>
+                The groups that this block will be targetted as by turrets, AI blocks, etc.
+                Refer to TargetGroups.sbc for the group subtypes.
+                Default value depends on the block type, see the TargetGroups.sbc.
+            </Documentation>
+        </Member>
+        <Member Name="WheelPlacementCollider">
+            <Documentation>
+                Only used by blocks that are attachable to suspension blocks.
+                Because wheel colliders are spheres this feature provides a fake cylinder collider only used for building around the wheel as well as detecting if the wheel can fit.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition.CubeBlockComponent">
+        <Member Name="DeconstructId">
+            <Documentation>
+                When a player grinds this component from a block, they will get this item instead of the grinded component.
+                Can be any item ID.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <Type Name="VRage.Game.MyObjectBuilder_PhysicalModelDefinition">
+        <Member Name="Model">
+            <Documentation>
+                Path to a .mwm file.
+                Relative path in the mod folder. Falls back to searching in game folder if not found in current mod.
+                Does not work to find assets in other mods unless you go back a level (..\) and into a different mod by its workshopId.
+                Gets replaced with a 1m gray box if model not found.
+            </Documentation>
+        </Member>
+        <Member Name="PhysicalMaterial">
+            <Documentation>
+                SubtypeId of a physical material definition (PhysicalMaterials.sbc).
+                MaterialProperties.sbc defines sounds/particles/etc when physical materials interact.
+            </Documentation>
+        </Member>
+        <Member Name="Mass">
+            <Documentation>
+                NOTE: Not working for blocks, gets ignored.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition.CriticalPart">
+        <Member Name="Index">
+            <Documentation>
+                Use 0 to use the first stack that matches this Type+Subtype (from the top in the file).
+                Any higher number will skip that many until it reaches it.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <Type Name="VRage.Game.BlueprintClassEntry">
+        <Member Name="Enabled">
+            <Documentation>
+                If set to false it allows removing blueprints from the specified blueprint class.
+            </Documentation>
+        </Member>
+    </Type>
+    
+    <!-- for easy copy
+    
+    <Type Name="TYPE">
+        <Member Name="MEMBER">
+            <Documentation>
+                Text
+            </Documentation>
+        </Member>
+    </Type>
+    
+    -->
 </Patches>
