@@ -19,14 +19,16 @@ namespace SchemaBuilder
         public void Postprocess(PostprocessArgs args, bool allowXsd11)
         {
             // Compute type trees.
+            var typesWithSubtypes = new HashSet<XmlQualifiedName>();
             var baseTypes = new UnionFind();
             foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
                 baseTypes.Insert(type.QualifiedName);
             foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
             {
                 var baseType = (type.ContentModel?.Content as XmlSchemaComplexContentExtension)?.BaseTypeName;
-                if (baseType != null)
-                    baseTypes.Union(type.QualifiedName, baseType);
+                if (baseType == null) continue;
+                typesWithSubtypes.Add(baseType);
+                baseTypes.Union(type.QualifiedName, baseType);
             }
 
             // Determine type tree size
@@ -48,10 +50,36 @@ namespace SchemaBuilder
                 treeUnordered[treeKey] = shouldMake;
             }
 
+            // Determine if type trees have been severed.
+            var typeSevered = new HashSet<XmlQualifiedName>();
+            var treeSevered = new HashSet<XmlQualifiedName>();
+            foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
+            {
+                var treeKey = baseTypes.Find(type.QualifiedName);
+                if (treeUnordered[treeKey])
+                    continue;
+                args.TypeData(type.Name, out _, out var typePatch);
+                var unorderedRequest = (typePatch?.Unordered).OrInherit(args.Patches.AllUnordered);
+                if (unorderedRequest == InheritableTrueFalseAggressive.Aggressive && ShouldMakeUnordered(args, type, true, allowXsd11))
+                {
+                    treeSevered.Add(treeKey);
+                    typeSevered.Add(type.QualifiedName);
+                }
+            }
+
             // Actually make the types unordered if possible.
             foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
-                if (treeUnordered[baseTypes.Find(type.QualifiedName)])
-                    MakeUnorderedType(type, allowXsd11);
+                if (treeUnordered[baseTypes.Find(type.QualifiedName)] || typeSevered.Contains(type.QualifiedName))
+                    MakeUnorderedType(args, type, allowXsd11);
+
+            // If there are referenced to severed type trees they need to be erased.
+            var severedBaseTypes = new HashSet<XmlQualifiedName>();
+            foreach (var withSubtypes in typesWithSubtypes)
+                if (treeSevered.Contains(baseTypes.Find(withSubtypes)))
+                    severedBaseTypes.Add(withSubtypes);
+            if (severedBaseTypes.Count > 0)
+                foreach (var type in args.Schema.SchemaTypes.Values.OfType<XmlSchemaComplexType>())
+                    EraseSeveredPolymorphicTypes(type, severedBaseTypes);
         }
 
         private sealed class UnionFind
@@ -133,17 +161,84 @@ namespace SchemaBuilder
             }
         }
 
-
-        private void MakeUnorderedType(XmlSchemaComplexType type, bool allowXsd11)
+        private IEnumerable<XmlSchemaAnnotated> ElementsAndAttributes(PostprocessArgs args, XmlSchemaComplexType type)
         {
-            type.Particle = MakeUnorderedParticle(type.Particle);
+            var attributes = new HashSet<XmlQualifiedName>();
+            var elements = new HashSet<XmlQualifiedName>();
+            while (true)
+            {
+                foreach (var child in Particle(type.Particle))
+                    if (elements.Add(child.QualifiedName))
+                        yield return child;
+                foreach (var attr in type.AttributeUses.Values.OfType<XmlSchemaAttribute>())
+                    if (attributes.Add(attr.QualifiedName))
+                        yield return attr;
+                if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
+                {
+                    foreach (var child in Particle(complexExt.Particle))
+                        if (elements.Add(child.QualifiedName))
+                            yield return child;
+                    if (args.Schema.SchemaTypes[complexExt.BaseTypeName] is XmlSchemaComplexType baseType)
+                    {
+                        type = baseType;
+                        continue;
+                    }
+                }
 
-            if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
-                complexExt.Particle = MakeUnorderedParticle(complexExt.Particle);
+                yield break;
+
+                IEnumerable<XmlSchemaElement> Particle(XmlSchemaParticle particle) =>
+                    particle switch
+                    {
+                        XmlSchemaAll all => all.Items.OfType<XmlSchemaElement>(),
+                        XmlSchemaChoice choice => choice.Items.OfType<XmlSchemaElement>(),
+                        XmlSchemaElement element => new[] { element },
+                        XmlSchemaSequence sequence => sequence.Items.OfType<XmlSchemaElement>(),
+                        null => Array.Empty<XmlSchemaElement>(),
+                        _ => throw new ArgumentOutOfRangeException(nameof(particle), particle.GetType().FullName)
+                    };
+            }
+        }
+
+        private void MakeUnorderedType(PostprocessArgs args, XmlSchemaComplexType type, bool allowXsd11)
+        {
+            if (allowXsd11)
+            {
+                // XSD 1.1 allows inheritance of unordered particles.
+                type.Particle = MakeUnorderedParticle(type.Particle);
+
+                if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
+                    complexExt.Particle = MakeUnorderedParticle(complexExt.Particle);
+                return;
+            }
+
+            type.Attributes.Clear();
+            var elements = new XmlSchemaAll();
+            foreach (var obj in ElementsAndAttributes(args, type).OrderBy(a => a switch
+                     {
+                         XmlSchemaAttribute attr => attr.QualifiedName.ToString(),
+                         XmlSchemaElement el => el.QualifiedName.ToString(),
+                         _ => throw new ArgumentOutOfRangeException(nameof(a))
+                     }))
+                switch (obj)
+                {
+                    case XmlSchemaElement el:
+                        elements.Items.Add(MakeUnorderedElement(el));
+                        break;
+                    case XmlSchemaAttribute attr:
+                        type.Attributes.Add(attr);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(obj));
+                }
+
+            type.Particle = elements;
+            type.ContentModel = null;
+
             return;
 
 
-            XmlSchemaParticle MakeUnorderedParticle(XmlSchemaParticle particle) => particle switch
+            XmlSchemaAll MakeUnorderedParticle(XmlSchemaParticle particle) => particle switch
             {
                 XmlSchemaAll all => all,
                 XmlSchemaChoice choice => new XmlSchemaAll { Items = { MakeUnorderedElement((XmlSchemaElement)choice.Items[0]) } },
@@ -153,7 +248,7 @@ namespace SchemaBuilder
                 _ => throw new ArgumentOutOfRangeException(nameof(particle))
             };
 
-            XmlSchemaParticle MakeUnorderedSequence(XmlSchemaSequence sequence)
+            XmlSchemaAll MakeUnorderedSequence(XmlSchemaSequence sequence)
             {
                 var all = new XmlSchemaAll();
                 foreach (var item in sequence.Items)
@@ -166,6 +261,40 @@ namespace SchemaBuilder
                 if (!allowXsd11 && element.MaxOccurs > 1)
                     element.MaxOccurs = 1;
                 return element;
+            }
+        }
+
+        private void EraseSeveredPolymorphicTypes(XmlSchemaComplexType type, HashSet<XmlQualifiedName> erase)
+        {
+            ProcessParticle(type.Particle);
+            if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
+                ProcessParticle(complexExt.Particle);
+            return;
+
+            void ProcessParticle(XmlSchemaParticle particle)
+            {
+                switch (particle)
+                {
+                    case null:
+                        break;
+                    case XmlSchemaAny _:
+                        break;
+                    case XmlSchemaElement element:
+                        ProcessElement(element);
+                        break;
+                    case XmlSchemaGroupBase group:
+                        foreach (var el in group.Items.OfType<XmlSchemaParticle>())
+                            ProcessParticle(el);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(particle), particle.GetType().FullName);
+                }
+            }
+
+            void ProcessElement(XmlSchemaElement element)
+            {
+                if (!erase.Contains(element.SchemaTypeName)) return;
+                element.SchemaTypeName = new XmlQualifiedName("anyType", "http://www.w3.org/2001/XMLSchema");
             }
         }
     }
