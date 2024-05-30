@@ -294,7 +294,10 @@ namespace SchemaBuilder
             void ProcessElement(XmlSchemaElement element)
             {
                 if (!erase.Contains(element.SchemaTypeName)) return;
-                element.SchemaTypeName = new XmlQualifiedName("anyType", "http://www.w3.org/2001/XMLSchema");
+                // Severing the polymorphic type hierarchy is necessary for validation to pass.
+                // However doing so prevents the VSCode XML LSP from resolving documentation.
+                // For now we won't sever the type, and just ignore the error.
+                // element.SchemaTypeName = new XmlQualifiedName("anyType", "http://www.w3.org/2001/XMLSchema");
             }
         }
     }
