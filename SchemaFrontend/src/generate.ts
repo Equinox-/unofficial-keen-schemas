@@ -65,24 +65,34 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
 const SampleOmit: string = '__omit__';
 
 function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectType) {
-    for (const [name, attr] of Object.entries(type.attributes)) {
-        if (attr.sample == SampleOmit)
-            continue;
-        builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), attr.documentation);
+    const types = [type];
+    while (types[types.length - 1].baseType != null) {
+        types.push(constrainedTypeByName(ir, types[types.length - 1].baseType.name, 'object'));
     }
-    for (const [name, element] of Object.entries(type.elements)) {
-        if (element.sample == SampleOmit)
-            continue;
-        builder.startElement(name, element.documentation);
-        if (element.sample != null) {
-            builder.writeContent(element.sample);
+
+    for (const typeTree of types) {
+        for (const [name, attr] of Object.entries(typeTree.attributes)) {
+            if (attr.sample == SampleOmit)
+                continue;
+            builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), attr.documentation);
         }
-        else if (element.default != null) {
-            builder.writeContent(element.default);
-        } else {
-            generateTypeRefContents(ir, builder, element.type);
+    }
+
+    for (const typeTree of types) {
+        for (const [name, element] of Object.entries(typeTree.elements)) {
+            if (element.sample == SampleOmit)
+                continue;
+            builder.startElement(name, element.documentation);
+            if (element.sample != null) {
+                builder.writeContent(element.sample);
+            }
+            else if (element.default != null) {
+                builder.writeContent(element.default);
+            } else {
+                generateTypeRefContents(ir, builder, element.type);
+            }
+            builder.closeElement();
         }
-        builder.closeElement();
     }
 }
 
