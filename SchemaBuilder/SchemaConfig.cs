@@ -253,12 +253,19 @@ namespace SchemaBuilder
         [XmlAttribute]
         public InheritableTrueFalse Optional;
 
-        [XmlElement]
+        [XmlElement(nameof(Documentation))]
         public string Documentation;
+
+        [XmlAttribute(nameof(Documentation))]
+        public string DocumentationAttribute
+        {
+            get => Documentation;
+            set => Documentation = value;
+        }
 
         public const string HiddenSampleValue = "__omit__";
 
-        [XmlAttribute]
+        [XmlAttribute(nameof(Sample))]
         public bool HideSample
         {
             get => Sample == HiddenSampleValue;
@@ -267,6 +274,13 @@ namespace SchemaBuilder
 
         [XmlElement]
         public string Sample;
+
+        [XmlAttribute(nameof(Sample))]
+        public string SampleAttribute
+        {
+            get => Sample;
+            set => Sample = value;
+        }
 
         public void InheritFrom(MemberPatch other)
         {
