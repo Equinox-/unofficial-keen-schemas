@@ -265,14 +265,14 @@ namespace SchemaBuilder
 
         public const string HiddenSampleValue = "__omit__";
 
-        [XmlAttribute(nameof(Sample))]
+        [XmlAttribute]
         public bool HideSample
         {
             get => Sample == HiddenSampleValue;
             set => Sample = HiddenSampleValue;
         }
 
-        [XmlElement]
+        [XmlElement(nameof(Sample))]
         public string Sample;
 
         [XmlAttribute(nameof(Sample))]
