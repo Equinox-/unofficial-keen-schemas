@@ -1,0 +1,55 @@
+name: Frontend
+on:
+  push:
+    paths:
+      - SchemaFrontend/**
+      - .github/workflows/frontend.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # For federated auth
+    defaults:
+      run:
+        working-directory: SchemaFrontend/
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+      - run: corepack enable
+      - run: yarn set version stable
+      - name: Setup Node.js cache
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: yarn
+          cache-dependency-path: 'SchemaFrontend/yarn.lock'
+      - run: yarn install
+      - run: yarn run build
+      # Upload Frontend
+      - name: Upload Frontend
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend
+          path: SchemaFrontend/dist/
+      # Publish to GCS
+      - name: Log into gcloud
+        id: auth
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) && github.event_name != 'pull_request'
+        uses: 'google-github-actions/auth@v0'
+        with:
+          workload_identity_provider: 'projects/445692247363/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
+          service_account: 'keen-schema-uploader@machpi-net.iam.gserviceaccount.com'
+      - name: Release Frontend
+        uses: 'google-github-actions/upload-cloud-storage@v1'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: SchemaFrontend/dist/
+          destination: "unofficial-keen-schemas/frontend/"
+          parent: false
+          headers: |-
+            cache-control: public, max-age=300, must-revalidate

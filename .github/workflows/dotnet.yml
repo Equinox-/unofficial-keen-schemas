@@ -1,6 +1,13 @@
 name: .NET
+on:
+  push:
+    paths:
+      - SteamUtils/**
+      - SchemaBuilder/**
+      - patches/**
+      - .github/workflows/dotnet.yml
+  workflow_dispatch: {}
 
-on: [push]
 jobs:
   build:
     runs-on: windows-2019
