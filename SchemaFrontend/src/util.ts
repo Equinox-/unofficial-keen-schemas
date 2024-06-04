@@ -21,13 +21,18 @@ export function locationParameters(): { [key: string]: string[] } {
 
 export function setLocationParameter(newKey: string, newValues: string[]) {
     let hash = '#';
-    for (let [key, values] of Object.entries(locationParameters())) {
-        if (key == newKey) values = newValues;
+    const params = locationParameters();
+    params[newKey] = newValues;
+    for (let [key, values] of Object.entries(params)) {
         if (values.length == 0) continue;
         for (const value of values) {
             if (hash.length > 1) hash += '&';
             hash += encodeURIComponent(key) + '=' + encodeURIComponent(value);
         }
     }
-    window.location.hash = hash;
+    if (window.history.pushState != null) {
+        window.history.pushState(null, null, hash);
+    } else {
+        window.location.hash = hash;
+    }
 }

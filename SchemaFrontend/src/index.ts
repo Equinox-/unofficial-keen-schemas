@@ -9,7 +9,7 @@ import { locationParameters } from "./util";
     editorDom.style.top = '0';
     editorDom.style.bottom = '0';
 
-    const { schema, path } = locationParameters();
+    const { schema, path, selection } = locationParameters();
     if (schema?.length != 1 || !(path?.length >= 1)) {
         editorDom.innerText = 'Schema and path must be defined.';
         return;
@@ -18,5 +18,5 @@ import { locationParameters } from "./util";
     const stripPrefix = "MyObjectBuilder_";
     document.title = root.length == 2 ? root[1].startsWith(stripPrefix) ? root[1].substring(stripPrefix.length) : root[1] : root[0];
 
-    import('./editor').then(editor => editor.setupEditor(editorDom, schema[0], path));
+    import('./editor').then(editor => editor.setupEditor(editorDom, schema[0], path, selection != null ? selection[0] : undefined));
 })();
