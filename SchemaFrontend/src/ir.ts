@@ -14,7 +14,7 @@ export interface ObjectType extends Documented {
     base?: CustomTypeRef,
     elements: { [elementName: string]: Property },
     attributes: { [attributeName: string]: Property },
-    content?: ItemTypeRef
+    content?: PrimitiveTypeRef
 }
 
 export interface Property extends Documented {

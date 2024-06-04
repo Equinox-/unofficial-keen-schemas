@@ -97,7 +97,7 @@ function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectT
     }
 
     if (type.content != null) {
-        builder.writeContent(generateAttributeContents(ir, type.content));
+        builder.writeContent(generatePrimitiveContents(type.content.type));
     }
 
     for (const [name, element] of types.flatMap(ty => Object.entries(ty.elements))) {
