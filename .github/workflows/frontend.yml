@@ -35,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: frontend
-          path: schemas/dist/
+          path: SchemaFrontend/dist/
       # Publish to GCS
       - name: Log into gcloud
         id: auth
