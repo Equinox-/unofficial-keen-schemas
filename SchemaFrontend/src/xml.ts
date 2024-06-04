@@ -7,7 +7,7 @@ export interface XmlBuilderOptions {
     schema: string
 }
 const IndentChunk: string = '  ';
-const RecommendedLineWidth = 120;
+export const RecommendedLineWidth = 120;
 type XmlBuilderState = 'Prologue' | 'ElementBody' | 'ElementHeader';
 
 export class XmlBuilder {

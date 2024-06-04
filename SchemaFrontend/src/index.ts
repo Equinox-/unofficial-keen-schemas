@@ -4,10 +4,7 @@ import { locationParameters } from "./util";
     const editorDom = document.createElement("editor");
     document.body.appendChild(editorDom);
     editorDom.style.position = 'absolute';
-    editorDom.style.left = '0';
-    editorDom.style.right = '0';
-    editorDom.style.top = '0';
-    editorDom.style.bottom = '0';
+    editorDom.style.inset = '0';
 
     const { schema, path, selection } = locationParameters();
     if (schema?.length != 1 || !(path?.length >= 1)) {

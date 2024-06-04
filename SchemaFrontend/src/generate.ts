@@ -180,7 +180,16 @@ function generateTypeRefContents(ir: SchemaIr, builder: XmlBuilder, typeRef: Typ
             builder.writeContent(generatePrimitiveContents(itemType.type));
             break;
         case "custom":
-            generateObjectContents(ir, builder, constrainedTypeByName(ir, itemType.name, 'object'));
+            const customType = typeByName(ir, itemType.name);
+            switch (customType.$type) {
+                case "object":
+                    generateObjectContents(ir, builder, customType);
+                    break;
+                case "enum":
+                case "pattern":
+                    builder.writeContent(generateAttributeContents(ir, itemType));
+                    break;
+            }
             break;
     }
 
