@@ -1,5 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Patches>
+    <Type Name="SerializableVector2">
+        <Member Name="element:X" HideSample="true" />
+        <Member Name="element:Y" HideSample="true" />
+
+        <Member Name="attribute:x" Sample="1.2" />
+        <Member Name="attribute:y" Sample="3.4" />
+    </Type>
+
     <Type Name="SerializableVector3">
         <Member Name="element:X" HideSample="true" />
         <Member Name="element:Y" HideSample="true" />
@@ -8,5 +16,17 @@
         <Member Name="attribute:x" Sample="1.2" />
         <Member Name="attribute:y" Sample="3.4" />
         <Member Name="attribute:z" Sample="5.6" />
+    </Type>
+
+    <Type Name="SerializableVector4">
+        <Member Name="element:X" HideSample="true" />
+        <Member Name="element:Y" HideSample="true" />
+        <Member Name="element:Z" HideSample="true" />
+        <Member Name="element:W" HideSample="true" />
+
+        <Member Name="attribute:x" Sample="1.2" />
+        <Member Name="attribute:y" Sample="3.4" />
+        <Member Name="attribute:z" Sample="5.6" />
+        <Member Name="attribute:w" Sample="7.8" />
     </Type>
 </Patches>
