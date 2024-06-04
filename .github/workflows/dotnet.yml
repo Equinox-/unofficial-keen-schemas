@@ -6,6 +6,7 @@ on:
       - SteamUtils/**
       - SchemaBuilder/**
       - patches/**
+      - .github/workflows/dotnet.yml
   workflow_dispatch: {}
 jobs:
   build:

@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - SchemaFrontend/**
+      - .github/workflows/frontend.yml
 jobs:
   build:
     permissions:
