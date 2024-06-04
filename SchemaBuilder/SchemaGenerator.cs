@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Schema;
@@ -18,13 +20,11 @@ namespace SchemaBuilder
         private readonly ILogger<SchemaGenerator> _log;
         private readonly GameManager _games;
         private readonly DocReader _docs;
-        private readonly PostprocessUnordered _postprocessUnordered;
 
-        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log, PostprocessUnordered postprocessUnordered, DocReader docs)
+        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log, DocReader docs)
         {
             _games = games;
             _log = log;
-            _postprocessUnordered = postprocessUnordered;
             _docs = docs;
         }
 
@@ -56,30 +56,15 @@ namespace SchemaBuilder
             var postprocessArgs = new PostprocessArgs { Info = info, Patches = config, Schema = schema };
             Postprocess(postprocessArgs);
 
-            var tempSchema = Path.GetTempFileName();
-            try
-            {
-                WriteSchema(schema, tempSchema);
-
-                // Write the schema with XSD 1.0 support.
-                schema = postprocessArgs.Schema = ReadSchema(tempSchema);
-                _postprocessUnordered.Postprocess(postprocessArgs, false);
-                WriteSchema(schema, Path.Combine("schemas", name + ".xsd"));
-
-                // Write the schema with XSD 1.1 support.
-                schema = postprocessArgs.Schema = ReadSchema(tempSchema);
-                _postprocessUnordered.Postprocess(postprocessArgs, true);
-                var schemaAttrs = schema.UnhandledAttributes;
-                Array.Resize(ref schemaAttrs, (schemaAttrs?.Length ?? 0) + 1);
-                schemaAttrs[schemaAttrs.Length - 1] = new XmlDocument().CreateAttribute("vc", "minVersion", "http://www.w3.org/2007/XMLSchema-versioning");
-                schemaAttrs[schemaAttrs.Length - 1].Value = "1.1";
-                schema.UnhandledAttributes = schemaAttrs;
-                WriteSchema(schema, Path.Combine("schemas", name + ".11.xsd"));
-            }
-            finally
-            {
-                File.Delete(tempSchema);
-            }
+            var ir = SchemaIrCompiler.Compile(postprocessArgs.Schema);
+            SchemaIrConfig.ApplyConfig(ir, config);
+            SchemaIrDocumentation.InjectXmlDocumentation(ir, info, _docs);
+            // Write the IR file.
+            WriteIr(ir, Path.Combine("schemas", name + ".json"));
+            // Write the schema with XSD 1.0 support.
+            WriteSchema(SchemaIrToXsd.Generate(ir, false), Path.Combine("schemas", name + ".xsd"));
+            // Write the schema with XSD 1.1 support.
+            WriteSchema(SchemaIrToXsd.Generate(ir, true), Path.Combine("schemas", name + ".11.xsd"));
         }
 
         private XmlSchema ReadSchema(string path)
@@ -99,6 +84,20 @@ namespace SchemaBuilder
             using var stream = File.Open(path, FileMode.Create, FileAccess.Write);
             using var text = new StreamWriter(stream, Encoding.UTF8);
             schema.Write(text);
+        }
+
+        private void WriteIr(SchemaIr schema, string path)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (dir != null)
+                Directory.CreateDirectory(dir);
+            using var stream = File.Open(path, FileMode.Create, FileAccess.Write);
+            JsonSerializer.Serialize(stream, schema, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                IncludeFields = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            });
         }
 
         private void DiscoverTypes(
@@ -203,11 +202,8 @@ namespace SchemaBuilder
         {
             switch (type)
             {
-                case XmlSchemaSimpleType simple:
-                    Postprocess(args, simple);
-                    break;
                 case XmlSchemaComplexType complex:
-                    Postprocess(args, complex);
+                    PostprocessComplex(args, complex);
                     break;
                 case XmlSchemaElement element:
                     PostprocessTopLevelElement(args, element);
@@ -242,20 +238,6 @@ namespace SchemaBuilder
             }
         }
 
-        private static void MaybeAttachDocumentation(XmlSchemaAnnotated target, string comment)
-        {
-            if (string.IsNullOrWhiteSpace(comment))
-                return;
-            target.Annotation ??= new XmlSchemaAnnotation();
-            target.Annotation.Items.Add(new XmlSchemaDocumentation
-            {
-                Markup = new XmlNode[]
-                {
-                    new XmlDocument().CreateTextNode(comment)
-                }
-            });
-        }
-
         private void PostprocessTopLevelElement(PostprocessArgs args, XmlSchemaElement element)
         {
             if (!args.Info.TryGetTypeByXmlName(element.Name, out var xmlType)) return;
@@ -266,92 +248,12 @@ namespace SchemaBuilder
             }
         }
 
-        private void Postprocess(PostprocessArgs args, XmlSchemaSimpleType type)
-        {
-            if (type.Name.Contains("AnimationWrapMode"))
-                Debugger.Break();
-            args.TypeData(type.Name, out var typeInfo, out var typePatch);
-
-            var typeDoc = "";
-            if (typeInfo != null)
-                typeDoc = _docs.GetTypeComments(typeInfo.Type)?.Summary;
-            if (!string.IsNullOrEmpty(typePatch?.Documentation))
-                typeDoc = typePatch.Documentation;
-
-            ProcessContent(type.Content);
-
-            MaybeAttachDocumentation(type, typeDoc);
-            return;
-
-            void ProcessContent(XmlSchemaSimpleTypeContent content)
-            {
-                switch (content)
-                {
-                    case XmlSchemaSimpleTypeList list:
-                        ProcessList(list);
-                        break;
-                    case XmlSchemaSimpleTypeRestriction restriction:
-                        ProcessRestriction(restriction);
-                        break;
-                    case XmlSchemaSimpleTypeUnion union:
-                        ProcessUnion(union);
-                        break;
-                }
-            }
-
-            void ProcessList(XmlSchemaSimpleTypeList list) => ProcessContent(list.ItemType.Content);
-
-            void ProcessRestriction(XmlSchemaSimpleTypeRestriction restriction)
-            {
-                ProcessCollection<XmlSchemaFacet>(restriction.Facets, ProcessFacet);
-            }
-
-            void ProcessUnion(XmlSchemaSimpleTypeUnion union)
-            {
-                foreach (var member in union.BaseMemberTypes)
-                    ProcessContent(member.Content);
-            }
-
-            XmlSchemaFacet ProcessFacet(XmlSchemaFacet facet)
-            {
-                switch (facet)
-                {
-                    case XmlSchemaEnumerationFacet enumeration:
-                    {
-                        var memberPatch = typePatch?.MemberPatch(enumeration);
-                        if (memberPatch?.Delete == InheritableTrueFalse.True)
-                            return null;
-
-                        var doc = "";
-                        var member = (MemberInfo)typeInfo?.Type.GetField(enumeration.Value) ?? typeInfo?.Type.GetProperty(enumeration.Value);
-                        if (member != null)
-                            doc = _docs.GetMemberComment(member);
-
-                        if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
-                        MaybeAttachDocumentation(enumeration, doc);
-
-                        return enumeration;
-                    }
-                    default:
-                        return facet;
-                }
-            }
-        }
-
         private const string PolymorphicArrayPrefix = "ArrayOfMyAbstractXmlSerializerOf";
 
 
-        private void Postprocess(PostprocessArgs args, XmlSchemaComplexType type)
+        private void PostprocessComplex(PostprocessArgs args, XmlSchemaComplexType type)
         {
-            args.TypeData(type.Name, out var typeInfo, out var typePatch);
-
-            var typeDoc = "";
-            if (typeInfo != null)
-                typeDoc = _docs.GetTypeComments(typeInfo.Type)?.Summary;
-            if (!string.IsNullOrEmpty(typePatch?.Documentation))
-                typeDoc = typePatch.Documentation;
-
-            MaybeAttachDocumentation(type, typeDoc);
+            args.TypeData(type.Name, out var typeInfo);
 
             ProcessChildren(type.Attributes);
             type.Particle = ProcessParticle(type.Particle);
@@ -385,45 +287,12 @@ namespace SchemaBuilder
             {
                 switch (item)
                 {
-                    case XmlSchemaAttribute attr:
-                    {
-                        var memberPatch = typePatch?.MemberPatch(attr);
-                        if (memberPatch?.Delete == InheritableTrueFalse.True)
-                            return null;
-
-                        var doc = "";
-                        if (typeInfo != null && typeInfo.TryGetAttribute(attr.Name, out var attrMember))
-                            doc = _docs.GetMemberComment(attrMember.Member);
-                        switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
-                        {
-                            case InheritableTrueFalse.True:
-                                attr.Use = XmlSchemaUse.Optional;
-                                break;
-                            case InheritableTrueFalse.False:
-                                attr.Use = XmlSchemaUse.Required;
-                                break;
-                            case InheritableTrueFalse.Inherit:
-                            default:
-                                break;
-                        }
-
-                        if (!string.IsNullOrEmpty(memberPatch?.Documentation)) doc = memberPatch.Documentation;
-                        MaybeAttachDocumentation(attr, doc);
-                        return item;
-                    }
                     case XmlSchemaElement element:
                     {
-                        var memberPatch = typePatch?.MemberPatch(element);
-                        if (memberPatch?.Delete == InheritableTrueFalse.True)
-                            return null;
-
-                        var doc = "";
                         if (element.IsNillable)
                             element.MinOccurs = 0;
                         if (typeInfo != null && typeInfo.TryGetElement(element.Name, out var eleMember))
                         {
-                            doc = _docs.GetMemberComment(eleMember.Member);
-
                             if (eleMember.ReferencedTypes.Count == 1)
                             {
                                 var singleReturnType = eleMember.ReferencedTypes[0];
@@ -457,27 +326,6 @@ namespace SchemaBuilder
                                 _log.LogWarning($"Failed to resolve polymorphic element type {rawTypeName}");
                             }
                         }
-
-                        if (string.IsNullOrEmpty(element.SchemaTypeName?.Name))
-                            Debugger.Break();
-
-                        switch ((memberPatch?.Optional).OrInherit(args.Patches.AllOptional))
-                        {
-                            case InheritableTrueFalse.True:
-                                element.MinOccurs = 0;
-                                break;
-                            case InheritableTrueFalse.False:
-                                element.MinOccurs = Math.Max(element.MinOccurs, 1);
-                                break;
-                            case InheritableTrueFalse.Inherit:
-                            default:
-                                break;
-                        }
-
-                        if (!string.IsNullOrEmpty(memberPatch?.Documentation))
-                            doc = memberPatch.Documentation;
-
-                        MaybeAttachDocumentation(element, doc);
                         return item;
                     }
                     default:

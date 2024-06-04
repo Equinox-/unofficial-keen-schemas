@@ -4,7 +4,6 @@
     <SteamBranch>communityedition</SteamBranch>
 
     <AllOptional>true</AllOptional>
-    <AllUnordered>true</AllUnordered>
 
     <!-- Suppress types that bring in the entire entity serialization tree.  It makes the schema way larger and is generally not useful. -->
     <SuppressedType>VRage.ObjectBuilders.Definitions.MyObjectBuilder_PrefabDefinition</SuppressedType>

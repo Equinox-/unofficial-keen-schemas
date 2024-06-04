@@ -4,7 +4,6 @@
     <SteamBranch>public</SteamBranch>
 
     <AllOptional>true</AllOptional>
-    <AllUnordered>aggressive</AllUnordered>
 
     <TypeAlias CSharpType="VRage.MyFixedPoint" XmlPrimitive="string" Pattern="^[0-9]{0,13}(\.[0-9]{0,6})?$" />
 

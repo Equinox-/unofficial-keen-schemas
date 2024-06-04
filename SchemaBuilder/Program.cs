@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SchemaService.SteamUtils;
 using SteamKit2;
@@ -18,7 +17,6 @@ namespace SchemaBuilder
                     svc.AddHostedService<GameManager>();
                     svc.AddSingleton<SchemaGenerator>();
                     svc.AddSingleton<DocReader>();
-                    svc.AddSingleton<PostprocessUnordered>();
                 })
                 .Build();
             await host.StartAsync();
