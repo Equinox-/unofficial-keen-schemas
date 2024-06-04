@@ -4,8 +4,10 @@ on:
     paths:
       - SchemaFrontend/**
       - .github/workflows/frontend.yml
+
 jobs:
   build:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # For federated auth
