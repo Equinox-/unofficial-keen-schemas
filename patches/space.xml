@@ -45,37 +45,6 @@
         </Member>
     </Type>
     
-    <Type Name="VRage.ObjectBuilders.SerializableDefinitionId">
-        <Member Name="TypeId">
-            <Documentation>
-                Must be an existing ObjectBuilder type that exists in the game code.
-                WARNING: To avoid issues do not change a definition's TypeId. Instead copy a full definition from vanilla sbc, of the new type you need.
-                The "MyObjectBuilder_" prefix is optional.
-            </Documentation>
-        </Member>
-        <Member Name="Type"> <!-- attribute -->
-            <Documentation>
-                Must be an existing ObjectBuilder type that exists in the game code.
-                WARNING: To avoid issues do not change a definition's TypeId. Instead copy a full definition from vanilla sbc, of the new type you need.
-                The "MyObjectBuilder_" prefix is optional.
-            </Documentation>
-        </Member>
-        <Member Name="SubtypeId">
-            <Documentation>
-                A made up name that represents half of the identifier for this definition.
-                Subtypes are only unique per TypeId, they do not collide/override over different TypeIds.
-                Empty value is also a valid value.
-            </Documentation>
-        </Member>
-        <Member Name="Subtype"> <!-- attribute -->
-            <Documentation>
-                A made up name that represents half of the identifier for this definition.
-                Subtypes are only unique per TypeId, they do not collide/override over different TypeIds.
-                Empty value is also a valid value.
-            </Documentation>
-        </Member>
-    </Type>
-    
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
         <Member Name="DisplayName" Optional="false">
             <Documentation>

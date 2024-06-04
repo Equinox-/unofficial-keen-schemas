@@ -38,6 +38,9 @@ namespace SchemaBuilder
 
         [JsonPropertyName("attributes")]
         public Dictionary<string, PropertyIr> Attributes = new Dictionary<string, PropertyIr>();
+
+        [JsonPropertyName("content")]
+        public PrimitiveTypeReferenceIr Content;
     }
 
     public sealed class PropertyIr : BaseElementIr

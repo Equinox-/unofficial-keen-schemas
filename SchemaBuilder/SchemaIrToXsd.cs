@@ -101,6 +101,9 @@ namespace SchemaBuilder
 
             internal XmlSchemaComplexType GenerateObject(ObjectTypeIr obj, bool xsd11)
             {
+                var result = new XmlSchemaComplexType();
+                XmlSchemaObjectCollection attributesOut;
+
                 #region Flatten hierarchy when using XSD 1.0
 
                 Dictionary<string, PropertyIr> flatAttributes;
@@ -129,54 +132,70 @@ namespace SchemaBuilder
 
                 #endregion
 
-                #region Elements
-
-                XmlSchemaParticle elementsOut;
-                var compiledElements = flatElements.Select(CompileElement).ToList();
-                if (xsd11 || !compiledElements.Any(x => x.MaxOccurs > 1))
+                if (obj.Content != null)
                 {
-                    // Use all if there are no repeated elements or if this is an XSD 1.1 schema.
-                    var all = new XmlSchemaAll();
-                    foreach (var element in compiledElements)
-                        all.Items.Add(element);
-                    elementsOut = all;
+                    #region Content
+
+                    if (obj.Elements.Count > 0)
+                        throw new Exception("Object type containing content must not have elements");
+                    if (obj.BaseType != null)
+                        throw new Exception("Object type containing content must not have a base type");
+                    HandleSimpleTypeReference(obj.Content, out var contentType, out _);
+                    var content = new XmlSchemaSimpleContentExtension { BaseTypeName = contentType };
+                    attributesOut = content.Attributes;
+                    result.ContentModel = new XmlSchemaSimpleContent { Content = content };
+
+                    #endregion
                 }
                 else
                 {
-                    // Otherwise use a repeated choice.
-                    var choice = new XmlSchemaChoice { MinOccurs = 0, MaxOccursString = "unbounded" };
-                    foreach (var element in compiledElements)
+                    #region Elements
+
+                    XmlSchemaParticle elementsOut;
+                    var compiledElements = flatElements.Select(CompileElement).ToList();
+                    if (xsd11 || !compiledElements.Any(x => x.MaxOccurs > 1))
                     {
-                        element.MinOccursString = element.MaxOccursString = null;
-                        choice.Items.Add(element);
+                        // Use all if there are no repeated elements or if this is an XSD 1.1 schema.
+                        var all = new XmlSchemaAll();
+                        foreach (var element in compiledElements)
+                            all.Items.Add(element);
+                        elementsOut = all;
+                    }
+                    else
+                    {
+                        // Otherwise use a repeated choice.
+                        var choice = new XmlSchemaChoice { MinOccurs = 0, MaxOccursString = "unbounded" };
+                        foreach (var element in compiledElements)
+                        {
+                            element.MinOccursString = element.MaxOccursString = null;
+                            choice.Items.Add(element);
+                        }
+
+                        elementsOut = choice;
                     }
 
-                    elementsOut = choice;
-                }
+                    #endregion
 
-                #endregion
+                    #region Inheritance
 
-                #region Inheritance
-
-                XmlSchemaObjectCollection attributesOut;
-                var result = new XmlSchemaComplexType();
-                if (obj.BaseType != null && xsd11)
-                {
-                    var content = new XmlSchemaComplexContentExtension
+                    if (obj.BaseType != null && xsd11)
                     {
-                        BaseTypeName = new XmlQualifiedName(obj.BaseType.Name),
-                    };
-                    attributesOut = content.Attributes;
-                    content.Particle = elementsOut;
-                    result.ContentModel = new XmlSchemaComplexContent { Content = content };
-                }
-                else
-                {
-                    attributesOut = result.Attributes;
-                    result.Particle = elementsOut;
-                }
+                        var content = new XmlSchemaComplexContentExtension
+                        {
+                            BaseTypeName = new XmlQualifiedName(obj.BaseType.Name),
+                        };
+                        attributesOut = content.Attributes;
+                        content.Particle = elementsOut;
+                        result.ContentModel = new XmlSchemaComplexContent { Content = content };
+                    }
+                    else
+                    {
+                        attributesOut = result.Attributes;
+                        result.Particle = elementsOut;
+                    }
 
-                #endregion
+                    #endregion
+                }
 
                 #region Attributes
 

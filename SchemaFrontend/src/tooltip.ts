@@ -15,7 +15,7 @@ export class AceTooltips {
             const tooltip = this.findTooltip(e.getDocumentPosition());
             if (tooltip) {
                 const dom = document.createElement('div');
-                dom.innerText = tooltip.content;
+                dom.innerHTML = tooltip.content;
                 driver.showForRange(editor, tooltip.range, dom, e);
             } else {
                 driver.hide(e);

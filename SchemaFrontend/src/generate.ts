@@ -1,4 +1,4 @@
-import { ItemTypeRef, ObjectType, PrimitiveType, SchemaIr, Type, TypeRef } from "./ir";
+import { ItemTypeRef, ObjectType, PrimitiveType, Property, SchemaIr, Type, TypeRef } from "./ir";
 import { XmlBuilder } from "./xml";
 
 function typeByName(ir: SchemaIr, name: string): Type {
@@ -64,23 +64,46 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
 
 const SampleOmit: string = '__omit__';
 
+function propertyDocumentation(prop: Property): string | undefined {
+    let doc: string | undefined = null;
+    if (prop.documentation != null) {
+        if (doc != null) doc += '<br>';
+        doc = (doc ?? '') + prop.documentation;
+    }
+    if (prop.type.$type == 'array' && prop.type.wrapperElement == null) {
+        if (doc != null) doc += '<br>';
+        doc = (doc ?? '') + '<b>Repeatable</b>';
+    } else if (prop.type.$type == 'optional') {
+        if (doc != null) doc += '<br>';
+        doc = (doc ?? '') + '<b>Optional</b>';
+    } else {
+        if (doc != null) doc += '<br>';
+        doc = (doc ?? '') + '<b>Required</b>';
+    }
+    return doc;
+}
+
 function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectType) {
     const types = [type];
-    while (types[types.length - 1].baseType != null) {
-        types.push(constrainedTypeByName(ir, types[types.length - 1].baseType.name, 'object'));
+    while (types[types.length - 1].base != null) {
+        types.push(constrainedTypeByName(ir, types[types.length - 1].base.name, 'object'));
     }
     types.reverse();
 
     for (const [name, attr] of types.flatMap(ty => Object.entries(ty.attributes))) {
         if (attr.sample == SampleOmit)
             continue;
-        builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), attr.documentation);
+        builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), propertyDocumentation(attr));
+    }
+
+    if (type.content != null) {
+        builder.writeContent(generateAttributeContents(ir, type.content));
     }
 
     for (const [name, element] of types.flatMap(ty => Object.entries(ty.elements))) {
         if (element.sample == SampleOmit)
             continue;
-        builder.startElement(name, element.documentation);
+        builder.startElement(name, propertyDocumentation(element));
         if (element.sample != null) {
             builder.writeContent(element.sample);
         }

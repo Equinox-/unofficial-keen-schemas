@@ -11,9 +11,10 @@ export interface Documented {
 
 export interface ObjectType extends Documented {
     $type: 'object',
-    baseType?: CustomTypeRef,
+    base?: CustomTypeRef,
     elements: { [elementName: string]: Property },
-    attributes: { [attributeName: string]: Property }
+    attributes: { [attributeName: string]: Property },
+    content?: ItemTypeRef
 }
 
 export interface Property extends Documented {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Xml;
 using System.Xml.Schema;
@@ -13,7 +14,12 @@ namespace SchemaBuilder
             var ir = new SchemaIr();
 
             foreach (var type in schema.SchemaTypes.Values.OfType<XmlSchemaType>())
+            {
+                if (type.Name == "Parameter")
+                    Debugger.Break();
                 ir.Types.Add(type.Name, CompileType(type));
+            }
+
             foreach (var element in schema.Elements.Values.OfType<XmlSchemaElement>())
                 ir.RootElements.Add(element.Name, CompileElement(element));
 
@@ -37,11 +43,17 @@ namespace SchemaBuilder
             IndexParticle(type.Particle);
             IndexAttributes(type.Attributes);
 
-            if (type.ContentModel?.Content is XmlSchemaComplexContentExtension complexExt)
+            switch (type.ContentModel?.Content)
             {
-                IndexParticle(complexExt.Particle);
-                IndexAttributes(complexExt.Attributes);
-                result.BaseType = (CustomTypeReferenceIr)CompileTypeReference(complexExt.BaseTypeName);
+                case XmlSchemaComplexContentExtension complexExt:
+                    IndexParticle(complexExt.Particle);
+                    IndexAttributes(complexExt.Attributes);
+                    result.BaseType = (CustomTypeReferenceIr)CompileTypeReference(complexExt.BaseTypeName);
+                    break;
+                case XmlSchemaSimpleContentExtension simpleExt:
+                    IndexAttributes(simpleExt.Attributes);
+                    result.Content = (PrimitiveTypeReferenceIr)CompileTypeReference(simpleExt.BaseTypeName);
+                    break;
             }
 
             return result;
