@@ -39,6 +39,14 @@
         <Member Name="attribute:y" Sample="3.4" />
     </Type>
 
+    <Type Name="SerializableVector2I">
+        <Member Name="element:X" HideSample="true" />
+        <Member Name="element:Y" HideSample="true" />
+
+        <Member Name="attribute:x" Sample="1.2" />
+        <Member Name="attribute:y" Sample="3.4" />
+    </Type>
+
     <Type Name="SerializableVector3">
         <Member Name="element:X" HideSample="true" />
         <Member Name="element:Y" HideSample="true" />
@@ -47,6 +55,16 @@
         <Member Name="attribute:x" Sample="1.2" />
         <Member Name="attribute:y" Sample="3.4" />
         <Member Name="attribute:z" Sample="5.6" />
+    </Type>
+
+    <Type Name="SerializableVector3I">
+        <Member Name="element:X" HideSample="true" />
+        <Member Name="element:Y" HideSample="true" />
+        <Member Name="element:Z" HideSample="true" />
+
+        <Member Name="attribute:x" Sample="1" />
+        <Member Name="attribute:y" Sample="2" />
+        <Member Name="attribute:z" Sample="3" />
     </Type>
 
     <Type Name="SerializableVector4">

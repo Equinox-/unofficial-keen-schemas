@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
-using System.Xml.Schema;
 using System.Xml.Serialization;
 
 namespace SchemaBuilder
@@ -200,15 +199,58 @@ namespace SchemaBuilder
         False,
     }
 
-    public class TypePatch : IInheritable<TypePatch>
+    public abstract class DocumentedPatch
+    {
+        private string _documentation;
+
+        [XmlElement(nameof(Documentation))]
+        public string Documentation
+        {
+            get => _documentation;
+            set => _documentation = CleanDocumentation(value);
+        }
+
+        [XmlAttribute(nameof(Documentation))]
+        public string DocumentationAttribute
+        {
+            get => _documentation;
+            set => _documentation = CleanDocumentation(value);
+        }
+
+        private static string CleanDocumentation(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+            var lines = value.Split('\n')
+                .SkipWhile(string.IsNullOrWhiteSpace)
+                .ToList();
+            while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+                lines.RemoveAt(lines.Count - 1);
+            if (lines.Count == 0)
+                return null;
+
+            var whitespace = int.MaxValue;
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+                var i = 0;
+                while (line[i] == ' ' || line[i] == '\t')
+                    i++;
+                if (i < whitespace)
+                    whitespace = i;
+            }
+
+            return string.Join("\n", lines.Select(x => string.IsNullOrWhiteSpace(x) ? "" : x.Substring(whitespace)));
+        }
+    }
+
+    public class TypePatch : DocumentedPatch, IInheritable<TypePatch>
     {
         private readonly Dictionary<string, MemberPatch> _members = new Dictionary<string, MemberPatch>();
 
         [XmlAttribute]
         public string Name;
-
-        [XmlElement]
-        public string Documentation;
 
         [XmlElement("Member")]
         public MemberPatch[] ForXmlMembers
@@ -242,7 +284,7 @@ namespace SchemaBuilder
         }
     }
 
-    public class MemberPatch : IInheritable<MemberPatch>
+    public class MemberPatch : DocumentedPatch, IInheritable<MemberPatch>
     {
         [XmlAttribute]
         public string Name;
@@ -252,16 +294,6 @@ namespace SchemaBuilder
 
         [XmlAttribute]
         public InheritableTrueFalse Optional;
-
-        [XmlElement(nameof(Documentation))]
-        public string Documentation;
-
-        [XmlAttribute(nameof(Documentation))]
-        public string DocumentationAttribute
-        {
-            get => Documentation;
-            set => Documentation = value;
-        }
 
         public const string HiddenSampleValue = "__omit__";
 

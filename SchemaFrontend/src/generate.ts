@@ -68,7 +68,7 @@ function propertyDocumentation(prop: Property): string | undefined {
     let doc: string | undefined = null;
     if (prop.documentation != null) {
         if (doc != null) doc += '<br>';
-        doc = (doc ?? '') + prop.documentation;
+        doc = (doc ?? '') + prop.documentation.replace("\n", "<br>");
     }
     if (prop.type.$type == 'array' && prop.type.wrapperElement == null) {
         if (doc != null) doc += '<br>';
