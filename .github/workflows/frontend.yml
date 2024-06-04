@@ -1,9 +1,10 @@
-name: .NET
-
-on: [push]
+name: Frontend
+on:
+  push:
+    paths:
+      - SchemaFrontend/**
 jobs:
   build:
-    runs-on: windows-2019
     permissions:
       contents: read
       id-token: write # For federated auth
@@ -13,6 +14,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
+      - run: corepack enable
       - name: Run install
         uses: borales/actions-yarn@v4
         with:

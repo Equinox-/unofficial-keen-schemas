@@ -1,6 +1,12 @@
 name: .NET
 
-on: [push]
+on:
+  push:
+    paths:
+      - SteamUtils/**
+      - SchemaBuilder/**
+      - patches/**
+  workflow_dispatch: {}
 jobs:
   build:
     runs-on: windows-2019
