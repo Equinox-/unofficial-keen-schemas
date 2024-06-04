@@ -42,12 +42,6 @@ namespace SchemaBuilder
         public InheritableTrueFalse AllOptional;
 
         /// <summary>
-        /// Should all possible elements be converted to unordered.
-        /// </summary>
-        [XmlElement]
-        public InheritableTrueFalseAggressive AllUnordered;
-
-        /// <summary>
         /// Types to suppress discovering of subtypes from and suppress discovery of.
         /// If the types are directly referenced by other types, they will still be included.
         /// </summary>
@@ -91,7 +85,6 @@ namespace SchemaBuilder
                 throw new Exception($"Attempting to inherit from schema for {other.Game} but this schema is for {Game}");
             SteamBranch ??= other.SteamBranch;
             AllOptional = AllOptional.OrInherit(other.AllOptional);
-            AllUnordered = AllUnordered.OrInherit(other.AllUnordered);
             foreach (var suppressed in other.SuppressedTypes)
                 SuppressedTypes.Add(suppressed);
             foreach (var mod in other.Mods)
@@ -182,7 +175,6 @@ namespace SchemaBuilder
         {
             null => super,
             InheritableTrueFalse.Inherit => super,
-            InheritableTrueFalseAggressive.Inherit => super,
             _ => self.Value,
         };
 
@@ -208,30 +200,12 @@ namespace SchemaBuilder
         False,
     }
 
-    public enum InheritableTrueFalseAggressive
-    {
-        [XmlEnum("inherit")]
-        Inherit,
-
-        [XmlEnum("true")]
-        True,
-
-        [XmlEnum("aggressive")]
-        Aggressive,
-
-        [XmlEnum("false")]
-        False,
-    }
-
     public class TypePatch : IInheritable<TypePatch>
     {
         private readonly Dictionary<string, MemberPatch> _members = new Dictionary<string, MemberPatch>();
 
         [XmlAttribute]
         public string Name;
-
-        [XmlAttribute]
-        public InheritableTrueFalseAggressive Unordered;
 
         [XmlElement]
         public string Documentation;
@@ -248,11 +222,11 @@ namespace SchemaBuilder
             }
         }
 
-        public MemberPatch MemberPatch(XmlSchemaAttribute attribute) => MemberPatch("attribute:", attribute.Name);
+        public MemberPatch AttributePatch(string name) => MemberPatch("attribute:", name);
 
-        public MemberPatch MemberPatch(XmlSchemaEnumerationFacet facet) => MemberPatch("enum:", facet.Value);
+        public MemberPatch EnumPatch(string name) => MemberPatch("enum:", name);
 
-        public MemberPatch MemberPatch(XmlSchemaElement element) => MemberPatch("element:", element.Name);
+        public MemberPatch ElementPatch(string name) => MemberPatch("element:", name);
 
         private MemberPatch MemberPatch(string prefix, string name)
         {
@@ -263,7 +237,6 @@ namespace SchemaBuilder
 
         public void InheritFrom(TypePatch other)
         {
-            Unordered = Unordered.OrInherit(other.Unordered);
             Documentation ??= other.Documentation;
             _members.OrInherit(other._members);
         }

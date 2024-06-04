@@ -51,12 +51,17 @@
         <Compile Include="GameScriptCompiler.cs" />
         <Compile Include="SchemaConfig.cs" />
         <Compile Include="PostprocessArgs.cs" />
-        <Compile Include="PostprocessUnordered.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="SchemaGenerator.cs" />
+        <Compile Include="SchemaIr.cs" />
+        <Compile Include="SchemaIrCompiler.cs" />
+        <Compile Include="SchemaIrConfig.cs" />
+        <Compile Include="SchemaIrDocumentation.cs" />
+        <Compile Include="SchemaIrToXsd.cs" />
         <Compile Include="SerializationProxies.cs" />
         <Compile Include="TaskAvoidance.cs" />
+        <Compile Include="UnionFind.cs" />
         <Compile Include="XmlInfo.cs" />
         <Compile Include="XmlNameConflictResolver.cs" />
         <Compile Include="XmlReflection.cs" />
@@ -84,6 +89,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+        <PackageReference Include="System.Text.Json" Version="7.0.4" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
