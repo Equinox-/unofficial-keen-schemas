@@ -69,32 +69,34 @@ namespace SchemaBuilder
 
         private static PropertyIr CompileElement(XmlSchemaElement element)
         {
+            var itemType = CompileTypeReference(element.SchemaTypeName);
             var result = new PropertyIr
             {
-                DefaultValue = element.DefaultValue,
-                Type = CompileTypeReference(element.SchemaTypeName)
+                DefaultValue = element.DefaultValue
             };
             AttachDocumentation(result, element);
             if (element.MaxOccurs > 1)
-                result.Type = new ArrayTypeReferenceIr { Item = result.Type };
+                result.Type = new ArrayTypeReferenceIr { Item = itemType };
             else if (element.MinOccurs == 0)
-                result.Type = new OptionalTypeReferenceIr { Item = result.Type };
+                result.Type = new OptionalTypeReferenceIr { Item = itemType };
+            else
+                result.Type = itemType;
             return result;
         }
 
         private static PropertyIr CompileAttribute(XmlSchemaAttribute attribute)
         {
+            var itemType = CompileTypeReference(attribute.SchemaTypeName);
             var result = new PropertyIr
             {
                 DefaultValue = attribute.DefaultValue,
-                Type = CompileTypeReference(attribute.SchemaTypeName)
+                Type = attribute.Use switch
+                {
+                    XmlSchemaUse.Optional => new OptionalTypeReferenceIr { Item = itemType },
+                    _ => itemType
+                }
             };
             AttachDocumentation(result, attribute);
-            result.Type = attribute.Use switch
-            {
-                XmlSchemaUse.Optional => new OptionalTypeReferenceIr { Item = result.Type },
-                _ => result.Type
-            };
             return result;
         }
 
@@ -141,7 +143,7 @@ namespace SchemaBuilder
             }
         }
 
-        private static TypeReferenceIr CompileTypeReference(XmlQualifiedName typeName)
+        private static ItemTypeReferenceIr CompileTypeReference(XmlQualifiedName typeName)
         {
             if (typeName.TryPrimitiveIrFromXsd(out var primitive))
                 return new PrimitiveTypeReferenceIr { Type = primitive };
@@ -219,10 +221,13 @@ namespace SchemaBuilder
                 switch (replacement(reference))
                 {
                     case ArrayTypeReferenceIr array:
-                        array.Item = FixRef(array.Item);
+                        array.Item = (ItemTypeReferenceIr)FixRef(array.Item);
                         return array;
                     case OptionalTypeReferenceIr optional:
-                        optional.Item = FixRef(optional.Item);
+                        var fixedRef = FixRef(optional.Item);
+                        if (!(fixedRef is ItemTypeReferenceIr fixedItem))
+                            return fixedRef;
+                        optional.Item = fixedItem;
                         return optional;
                     case PrimitiveTypeReferenceIr primitive:
                         return primitive;

@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace SchemaBuilder
 {
     public static class SchemaIrConfig
     {
-        public static void ApplyConfig(SchemaIr ir, SchemaConfig config)
+        public static void ApplyConfig(SchemaIr ir, XmlInfo info, SchemaConfig config)
         {
             foreach (var type in ir.Types)
             {
                 var patch = config.TypePatch(type.Key);
+                if (patch == null && info.TryGetTypeByXmlName(type.Key, out var typeInfo))
+                    patch = config.TypePatch(typeInfo.Type.FullName) ?? config.TypePatch(typeInfo.Type.Name);
                 if (patch != null)
                     ApplyType(patch, type.Value);
             }
@@ -64,17 +65,17 @@ namespace SchemaBuilder
                     foreach (var prop in properties)
                     {
                         var patch = getter(prop.Key);
-                        if (patch == null) continue;
-                        if (patch.Delete == InheritableTrueFalse.True) removing.Add(prop.Key);
-                        if (!string.IsNullOrEmpty(patch.Documentation)) prop.Value.Documentation = patch.Documentation;
+                        if (patch?.Delete == InheritableTrueFalse.True) removing.Add(prop.Key);
+                        if (!string.IsNullOrEmpty(patch?.Documentation)) prop.Value.Documentation = patch.Documentation;
+                        if (!string.IsNullOrEmpty(patch?.Sample)) prop.Value.SampleValue = patch.Sample;
 
-                        switch (patch.Optional.OrInherit(config.AllOptional))
+                        switch ((patch?.Optional).OrInherit(config.AllOptional))
                         {
                             case InheritableTrueFalse.Inherit:
                                 break;
                             case InheritableTrueFalse.True:
-                                if (!(prop.Value.Type is OptionalTypeReferenceIr))
-                                    prop.Value.Type = new OptionalTypeReferenceIr { Item = prop.Value.Type };
+                                if (prop.Value.Type is ItemTypeReferenceIr item)
+                                    prop.Value.Type = new OptionalTypeReferenceIr { Item = item };
                                 break;
                             case InheritableTrueFalse.False:
                                 if (prop.Value.Type is OptionalTypeReferenceIr opt)

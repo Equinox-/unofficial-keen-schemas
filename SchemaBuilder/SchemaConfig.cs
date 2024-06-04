@@ -256,11 +256,25 @@ namespace SchemaBuilder
         [XmlElement]
         public string Documentation;
 
+        public const string HiddenSampleValue = "__omit__";
+
+        [XmlAttribute]
+        public bool HideSample
+        {
+            get => Sample == HiddenSampleValue;
+            set => Sample = HiddenSampleValue;
+        }
+
+        [XmlElement]
+        public string Sample;
+
         public void InheritFrom(MemberPatch other)
         {
             Delete = Delete.OrInherit(other.Delete);
             Optional = Optional.OrInherit(other.Optional);
+            HideSample = HideSample.OrInherit(other.HideSample);
             Documentation ??= other.Documentation;
+            Sample ??= other.Sample;
         }
     }
 
