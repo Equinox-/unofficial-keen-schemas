@@ -8,21 +8,19 @@ jobs:
     permissions:
       contents: read
       id-token: write # For federated auth
+    defaults:
+      run:
+        working-directory: SchemaFrontend/
     steps:
       - uses: actions/checkout@v3
       - name: Set Node.js 20.x
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
+          cache: yarn
       - run: corepack enable
-      - name: Run install
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: install
-      - name: Run build
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: build
+      - run: yarn install
+      - run: yarn run build
       # Upload Frontend
       - name: Upload Frontend
         uses: actions/upload-artifact@v3
