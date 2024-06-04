@@ -17,6 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Patches", "Patches", "{E470
 		patches\medieval.xml = patches\medieval.xml
 		patches\space.xml = patches\space.xml
 		patches\medieval-modded.xml = patches\medieval-modded.xml
+		patches\shared.xml = patches\shared.xml
 	EndProjectSection
 EndProject
 Global

@@ -1,5 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Patches>
+    <Include>shared</Include>
+
     <Game>space-engineers</Game>
     <SteamBranch>public</SteamBranch>
 

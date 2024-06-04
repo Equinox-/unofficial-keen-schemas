@@ -57,7 +57,7 @@ namespace SchemaBuilder
             Postprocess(postprocessArgs);
 
             var ir = SchemaIrCompiler.Compile(postprocessArgs.Schema);
-            SchemaIrConfig.ApplyConfig(ir, config);
+            SchemaIrConfig.ApplyConfig(ir, info, config);
             SchemaIrDocumentation.InjectXmlDocumentation(ir, info, _docs);
             // Write the IR file.
             WriteIr(ir, Path.Combine("schemas", name + ".json"));

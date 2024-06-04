@@ -40,6 +40,18 @@ namespace SchemaBuilder
         public Dictionary<string, PropertyIr> Attributes = new Dictionary<string, PropertyIr>();
     }
 
+    public sealed class PropertyIr : BaseElementIr
+    {
+        [JsonPropertyName("type")]
+        public TypeReferenceIr Type;
+
+        [JsonPropertyName("default")]
+        public string DefaultValue;
+
+        [JsonPropertyName("sample")]
+        public string SampleValue;
+    }
+
     public sealed class EnumTypeIr : TypeIr
     {
         [JsonPropertyName("flags")]
@@ -71,6 +83,12 @@ namespace SchemaBuilder
         public bool Equals(TypeReferenceIr other) => Equals((object)other);
     }
 
+    [JsonDerivedType(typeof(PrimitiveTypeReferenceIr), "primitive")]
+    [JsonDerivedType(typeof(CustomTypeReferenceIr), "custom")]
+    public abstract class ItemTypeReferenceIr : TypeReferenceIr
+    {
+    }
+
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum PrimitiveTypeIr
     {
@@ -80,7 +98,7 @@ namespace SchemaBuilder
         Integer,
     }
 
-    public sealed class PrimitiveTypeReferenceIr : TypeReferenceIr, IEquatable<PrimitiveTypeReferenceIr>
+    public sealed class PrimitiveTypeReferenceIr : ItemTypeReferenceIr, IEquatable<PrimitiveTypeReferenceIr>
     {
         [JsonPropertyName("type")]
         public PrimitiveTypeIr Type;
@@ -94,7 +112,7 @@ namespace SchemaBuilder
         public override string ToString() => $"Primitive[{Type}]";
     }
 
-    public sealed class CustomTypeReferenceIr : TypeReferenceIr, IEquatable<CustomTypeReferenceIr>
+    public sealed class CustomTypeReferenceIr : ItemTypeReferenceIr, IEquatable<CustomTypeReferenceIr>
     {
         [JsonPropertyName("name")]
         public string Name;
@@ -111,7 +129,7 @@ namespace SchemaBuilder
     public sealed class ArrayTypeReferenceIr : TypeReferenceIr, IEquatable<ArrayTypeReferenceIr>
     {
         [JsonPropertyName("item")]
-        public TypeReferenceIr Item;
+        public ItemTypeReferenceIr Item;
 
         [JsonPropertyName("wrapperElement")]
         public string WrapperElement;
@@ -128,7 +146,7 @@ namespace SchemaBuilder
     public sealed class OptionalTypeReferenceIr : TypeReferenceIr, IEquatable<OptionalTypeReferenceIr>
     {
         [JsonPropertyName("item")]
-        public TypeReferenceIr Item;
+        public ItemTypeReferenceIr Item;
 
         public bool Equals(OptionalTypeReferenceIr other) => other != null && Equals(Item, other.Item);
 
@@ -137,14 +155,5 @@ namespace SchemaBuilder
         public override int GetHashCode() => Item?.GetHashCode() ?? 0;
 
         public override string ToString() => $"Optional[{Item}]";
-    }
-
-    public sealed class PropertyIr : BaseElementIr
-    {
-        [JsonPropertyName("type")]
-        public TypeReferenceIr Type;
-
-        [JsonPropertyName("default")]
-        public string DefaultValue;
     }
 }
