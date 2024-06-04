@@ -24,7 +24,7 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
         if (property == null) {
             throw new Error('Navigating path ' + path.join(' -> ') + ' at ' + element + ', element is missing');
         }
-        builder.startElement(name, property.documentation);
+        builder.startElement(name, propertyDocumentation(property));
         openedElements++;
 
         let itemType: ItemTypeRef;
@@ -32,7 +32,7 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
             case "array":
                 itemType = property.type.item;
                 if (property.type.wrapperElement != null) {
-                    builder.startElement(property.type.wrapperElement);
+                    builder.startElement(property.type.wrapperElement, '<i>' + stringifyType(itemType) + '</i>');
                     openedElements++;
                 }
                 break;
@@ -64,22 +64,40 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
 
 const SampleOmit: string = '__omit__';
 
+function appendDocLine(curr: string | undefined, append: string): string {
+    if (curr != null) curr += '<br>';
+    return (curr ?? '') + append;
+}
+
+function stringifyType(ref: TypeRef): string {
+    switch (ref.$type) {
+        case "array":
+            return 'List&lt;' + stringifyType(ref.item) + '&gt;'
+        case "optional":
+            return stringifyType(ref.item) + '?';
+        case "primitive":
+            return ref.type;
+        case "custom":
+            return ref.name;
+    }
+}
+
+function documentType(ref: TypeRef): string {
+    if (ref.$type == 'array' && ref.wrapperElement == null) {
+        return '<b>Repeatable</b> <i>' + stringifyType(ref) + '</i>';
+    } else if (ref.$type == 'optional') {
+        return '<b>Optional</b> <i>' + stringifyType(ref) + '</i>';
+    } else {
+        return '<b>Required</b> <i>' + stringifyType(ref) + '</i>';
+    }
+}
+
 function propertyDocumentation(prop: Property): string | undefined {
     let doc: string | undefined = null;
     if (prop.documentation != null) {
-        if (doc != null) doc += '<br>';
-        doc = (doc ?? '') + prop.documentation.replace("\n", "<br>");
+        doc = appendDocLine(doc, prop.documentation.replace("\n", "<br>"));
     }
-    if (prop.type.$type == 'array' && prop.type.wrapperElement == null) {
-        if (doc != null) doc += '<br>';
-        doc = (doc ?? '') + '<b>Repeatable</b>';
-    } else if (prop.type.$type == 'optional') {
-        if (doc != null) doc += '<br>';
-        doc = (doc ?? '') + '<b>Optional</b>';
-    } else {
-        if (doc != null) doc += '<br>';
-        doc = (doc ?? '') + '<b>Required</b>';
-    }
+    doc = appendDocLine(doc, documentType(prop.type));
     return doc;
 }
 
@@ -106,8 +124,7 @@ function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectT
         builder.startElement(name, propertyDocumentation(element));
         if (element.sample != null) {
             builder.writeContent(element.sample);
-        }
-        else if (element.default != null) {
+        } else if (element.default != null) {
             builder.writeContent(element.default);
         } else {
             generateTypeRefContents(ir, builder, element.type);
@@ -163,7 +180,7 @@ function generateTypeRefContents(ir: SchemaIr, builder: XmlBuilder, typeRef: Typ
         case "array":
             itemType = typeRef.item;
             if (typeRef.wrapperElement != null) {
-                builder.startElement(typeRef.wrapperElement);
+                builder.startElement(typeRef.wrapperElement, '<i>' + stringifyType(typeRef.item) + '</i>');
                 openedElements++;
             }
             break;

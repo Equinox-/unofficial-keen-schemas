@@ -13,7 +13,7 @@ type XmlBuilderState = 'Prologue' | 'ElementBody' | 'ElementHeader';
 export class XmlBuilder {
     private options: XmlBuilderOptions;
     private state: XmlBuilderState;
-    private path: string[];
+    private stack: { tag: string, documentation?: string }[];
 
     private get editor(): Ace.Editor {
         return this.options.editor;
@@ -37,7 +37,7 @@ export class XmlBuilder {
         this.options = options;
         this.session.setValue("<?xml version='1.0' encoding='UTF-8'?>\n");
         this.state = 'Prologue';
-        this.path = [];
+        this.stack = [];
     }
 
     openElement(tag: string, ...attributes: [string, string][]) {
@@ -57,13 +57,13 @@ export class XmlBuilder {
             this.state = 'ElementBody';
         }
         this.appendIndent();
-        const start = this.position;
+        const ref = this.position;
         this.append('<' + tag);
         if (documentation != null) {
-            this.tooltip(start, 1 + tag.length, documentation);
+            this.tooltip(ref, 1, tag.length, documentation);
         }
         const wasPrologue = this.state == 'Prologue';
-        this.path.push(tag);
+        this.stack.push({ tag, documentation });
         this.state = 'ElementHeader';
         if (wasPrologue) {
             this.writeAttribute('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
@@ -84,14 +84,14 @@ export class XmlBuilder {
         this.assertState('ElementHeader');
         const attrChunk = key + '="' + XmlBuilder.escape(value) + '"';
         if (this.lineLength + 1 + attrChunk.length >= RecommendedLineWidth) {
-            this.append('\n' + IndentChunk.repeat(this.path.length + 2));
+            this.append('\n' + IndentChunk.repeat(this.stack.length + 2));
         } else {
             this.append(' ');
         }
-        const start = this.position;
+        const ref = this.position;
         this.append(attrChunk);
         if (documentation != null) {
-            this.tooltip(start, key.length, documentation);
+            this.tooltip(ref, 0, key.length, documentation);
         }
     }
 
@@ -99,22 +99,26 @@ export class XmlBuilder {
         switch (this.state) {
             case 'ElementHeader':
                 this.append(' />\n');
-                this.path.pop();
+                this.stack.pop();
                 break;
             case 'ElementBody':
-                const tag = this.path.pop();
+                const { tag, documentation } = this.stack.pop();
                 if (this.lineLength == 0)
                     this.appendIndent();
+                const ref = this.position;
                 this.append('</' + tag + '>\n');
+                if (documentation != null) {
+                    this.tooltip(ref, 2, tag.length, documentation);
+                }
                 break;
             default:
                 throw new Error('Expected state in ElementHeader, ElementBody was ' + this.state);
         }
-        this.state = this.path.length == 0 ? 'Prologue' : 'ElementBody';
+        this.state = this.stack.length == 0 ? 'Prologue' : 'ElementBody';
     }
 
     private appendIndent() {
-        this.append(IndentChunk.repeat(this.path.length));
+        this.append(IndentChunk.repeat(this.stack.length));
     }
 
     private append(content: string) {
@@ -132,8 +136,8 @@ export class XmlBuilder {
         throw new Error('Expected state in ' + states.join(', ') + ' was ' + this.state);
     }
 
-    private tooltip(start: Ace.Position, length: number, content: string) {
-        const range = Range.fromPoints(start, { row: start.row, column: start.column + length });
+    private tooltip(ref: Ace.Position, start: number, length: number, content: string) {
+        const range = Range.fromPoints({ row: ref.row, column: ref.column + start }, { row: ref.row, column: ref.column + start + length });
         this.options.tooltips?.addTooltip({
             range,
             content
