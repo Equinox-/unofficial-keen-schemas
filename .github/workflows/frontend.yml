@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: 20.x
           cache: yarn
+          cache-dependency-path: 'SchemaFrontend/yarn.lock'
       - run: corepack enable
       - run: yarn install
       - run: yarn run build
