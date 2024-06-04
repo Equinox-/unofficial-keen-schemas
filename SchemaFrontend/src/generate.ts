@@ -65,12 +65,19 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
 const SampleOmit: string = '__omit__';
 
 function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectType) {
-    for (const [name, attr] of Object.entries(type.attributes)) {
+    const types = [type];
+    while (types[types.length - 1].baseType != null) {
+        types.push(constrainedTypeByName(ir, types[types.length - 1].baseType.name, 'object'));
+    }
+    types.reverse();
+
+    for (const [name, attr] of types.flatMap(ty => Object.entries(ty.attributes))) {
         if (attr.sample == SampleOmit)
             continue;
         builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), attr.documentation);
     }
-    for (const [name, element] of Object.entries(type.elements)) {
+
+    for (const [name, element] of types.flatMap(ty => Object.entries(ty.elements))) {
         if (element.sample == SampleOmit)
             continue;
         builder.startElement(name, element.documentation);
