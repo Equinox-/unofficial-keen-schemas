@@ -36,6 +36,7 @@ export class XmlBuilder {
     constructor(options: XmlBuilderOptions) {
         this.options = options;
         this.session.setValue("<?xml version='1.0' encoding='UTF-8'?>\n");
+        this.options.tooltips?.clearTooltips();
         this.state = 'Prologue';
         this.stack = [];
     }
@@ -51,10 +52,10 @@ export class XmlBuilder {
         this.assertState('ElementBody', 'ElementHeader', 'Prologue');
         if (this.state == 'ElementHeader') {
             this.append('>\n');
+            this.state = 'ElementBody';
         } else if (this.state == 'ElementBody') {
             if (this.lineLength > 0)
                 this.append('\n');
-            this.state = 'ElementBody';
         }
         this.appendIndent();
         const ref = this.position;
@@ -80,7 +81,11 @@ export class XmlBuilder {
         this.append(XmlBuilder.escape(value));
     }
 
-    writeAttribute(key: string, value: string, documentation?: string) {
+    writeXsiType(type: string, typeDocumentation?: string) {
+        this.writeAttribute('xsi:type', type, 'Specifies the subtype for this ' + this.stack[this.stack.length - 1].tag, typeDocumentation);
+    }
+
+    writeAttribute(key: string, value: string, documentation?: string, valueDocumentation?: string) {
         this.assertState('ElementHeader');
         const attrChunk = key + '="' + XmlBuilder.escape(value) + '"';
         if (this.lineLength + 1 + attrChunk.length >= RecommendedLineWidth) {
@@ -92,6 +97,9 @@ export class XmlBuilder {
         this.append(attrChunk);
         if (documentation != null) {
             this.tooltip(ref, 0, key.length, documentation);
+        }
+        if (valueDocumentation != null) {
+            this.tooltip(ref, key.length + 2, attrChunk.length - key.length - 3, valueDocumentation);
         }
     }
 
@@ -115,6 +123,16 @@ export class XmlBuilder {
                 throw new Error('Expected state in ElementHeader, ElementBody was ' + this.state);
         }
         this.state = this.stack.length == 0 ? 'Prologue' : 'ElementBody';
+    }
+
+    writeComment(value: string) {
+        this.assertState('ElementBody', 'ElementHeader');
+        if (this.state == 'ElementHeader') {
+            this.append('>\n');
+            this.state = 'ElementBody';
+        }
+        this.appendIndent();
+        this.append('<!-- ' + value + ' -->\n');
     }
 
     private appendIndent() {

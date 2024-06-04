@@ -33,6 +33,10 @@ export class AceTooltips {
         return null;
     }
 
+    clearTooltips() {
+        this.tooltips.splice(0, this.tooltips.length);
+    }
+
     addTooltip(tooltip: AceTooltip) {
         this.tooltips.push(tooltip);
     }

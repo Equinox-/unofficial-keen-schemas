@@ -16,6 +16,7 @@ function constrainedTypeByName<T extends Type['$type']>(ir: SchemaIr, name: stri
 }
 
 export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[]) {
+    let typeName = '<root>';
     let type: ObjectType = { $type: 'object', elements: ir.rootElements, attributes: {} };
     let openedElements = 0;
     for (const element of path) {
@@ -46,8 +47,9 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
         }
 
         if (customTypeName != null) {
-            builder.writeAttribute('xsi:type', customTypeName);
+            typeName = customTypeName;
             type = constrainedTypeByName(ir, customTypeName, 'object');
+            builder.writeXsiType(customTypeName, appendDocLine(type.documentation, '<i>' + customTypeName + '</i>'));
             continue;
         }
 
@@ -55,8 +57,9 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
             throw new Error('Navigating path ' + path.join(' -> ') + ' at ' + element + ', element is not an object');
         }
         type = constrainedTypeByName(ir, itemType.name, 'object');
+        typeName = itemType.name;
     }
-    generateObjectContents(ir, builder, type);
+    generateObjectContents(ir, builder, typeName, type);
     for (let i = 0; i < openedElements; i++) {
         builder.closeElement();
     }
@@ -101,14 +104,16 @@ function propertyDocumentation(prop: Property): string | undefined {
     return doc;
 }
 
-function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectType) {
-    const types = [type];
-    while (types[types.length - 1].base != null) {
-        types.push(constrainedTypeByName(ir, types[types.length - 1].base.name, 'object'));
+function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, name: string, type: ObjectType) {
+    const types = [{ name, type }];
+    while (true) {
+        const base = types[types.length - 1].type.base;
+        if (base == null) break;
+        types.push({ name: base.name, type: constrainedTypeByName(ir, base.name, 'object') });
     }
     types.reverse();
 
-    for (const [name, attr] of types.flatMap(ty => Object.entries(ty.attributes))) {
+    for (const [name, attr] of types.flatMap(ty => Object.entries(ty.type.attributes))) {
         if (attr.sample == SampleOmit)
             continue;
         builder.writeAttribute(name, attr.sample ?? attr.default ?? generateAttributeContents(ir, attr.type), propertyDocumentation(attr));
@@ -118,18 +123,26 @@ function generateObjectContents(ir: SchemaIr, builder: XmlBuilder, type: ObjectT
         builder.writeContent(generatePrimitiveContents(type.content.type));
     }
 
-    for (const [name, element] of types.flatMap(ty => Object.entries(ty.elements))) {
-        if (element.sample == SampleOmit)
-            continue;
-        builder.startElement(name, propertyDocumentation(element));
-        if (element.sample != null) {
-            builder.writeContent(element.sample);
-        } else if (element.default != null) {
-            builder.writeContent(element.default);
-        } else {
-            generateTypeRefContents(ir, builder, element.type);
+    const groupByType = types.length > 1;
+
+    for (const ty of types) {
+        const elements = Object.entries(ty.type.elements);
+        if (elements.length == 0) continue;
+        if (groupByType) builder.writeComment('#region ' + ty.name);
+        for (const [name, element] of elements) {
+            if (element.sample == SampleOmit)
+                continue;
+            builder.startElement(name, propertyDocumentation(element));
+            if (element.sample != null) {
+                builder.writeContent(element.sample);
+            } else if (element.default != null) {
+                builder.writeContent(element.default);
+            } else {
+                generateTypeRefContents(ir, builder, element.type);
+            }
+            builder.closeElement();
         }
-        builder.closeElement();
+        if (groupByType) builder.writeComment('#endregion ' + ty.name);
     }
 }
 
@@ -200,7 +213,7 @@ function generateTypeRefContents(ir: SchemaIr, builder: XmlBuilder, typeRef: Typ
             const customType = typeByName(ir, itemType.name);
             switch (customType.$type) {
                 case "object":
-                    generateObjectContents(ir, builder, customType);
+                    generateObjectContents(ir, builder, itemType.name, customType);
                     break;
                 case "enum":
                 case "pattern":
