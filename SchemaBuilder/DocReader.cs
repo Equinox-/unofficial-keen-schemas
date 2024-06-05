@@ -40,10 +40,10 @@ namespace SchemaBuilder
             return mapped != null ? _docs.GetTypeComments(mapped) : null;
         }
 
-        public string GetMemberComment(MemberInfo member)
+        public CommonComments GetMemberComment(MemberInfo member)
         {
             var mapped = MapMember(member);
-            return mapped != null ? _docs.GetMemberComment(mapped) : null;
+            return mapped != null ? _docs.GetMemberComments(mapped) : null;
         }
     }
 }

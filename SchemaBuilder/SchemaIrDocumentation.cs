@@ -36,12 +36,13 @@ namespace SchemaBuilder
                 void InjectEnumType(EnumTypeIr enumIr)
                 {
                     foreach (var item in enumIr.Items)
-                        if (string.IsNullOrEmpty(item.Value.Documentation))
-                        {
-                            var member = (MemberInfo)typeInfo?.Type.GetField(item.Key) ?? typeInfo?.Type.GetProperty(item.Key);
-                            if (member == null) return;
-                            item.Value.Documentation = docs.GetMemberComment(member);
-                        }
+                    {
+                        var member = (MemberInfo)typeInfo?.Type.GetField(item.Key) ?? typeInfo?.Type.GetProperty(item.Key);
+                        if (member == null) continue;
+                        var doc = docs.GetMemberComment(member);
+                        if (doc == null) continue;
+                        if (string.IsNullOrEmpty(item.Value.Documentation)) item.Value.Documentation = doc.Summary;
+                    }
                 }
 
                 void InjectObjectType(ObjectTypeIr objIr)
@@ -49,11 +50,20 @@ namespace SchemaBuilder
                     foreach (var member in typeInfo.Members)
                     {
                         var doc = docs.GetMemberComment(member.Value.Member);
-                        if (string.IsNullOrEmpty(doc)) continue;
-                        if (objIr.Attributes.TryGetValue(member.Key, out var attr) && string.IsNullOrEmpty(attr.Documentation))
-                            attr.Documentation = doc;
-                        if (objIr.Elements.TryGetValue(member.Key, out var element) && string.IsNullOrEmpty(element.Documentation))
-                            element.Documentation = doc;
+                        if (doc == null) continue;
+
+                        if (objIr.Attributes.TryGetValue(member.Key, out var attr)) InjectDoc(attr);
+                        if (objIr.Elements.TryGetValue(member.Key, out var element)) InjectDoc(element);
+
+                        continue;
+
+                        void InjectDoc(PropertyIr prop)
+                        {
+                            if (string.IsNullOrEmpty(prop.Documentation) && !string.IsNullOrEmpty(doc.Summary))
+                                prop.Documentation = doc.Summary;
+                            if (string.IsNullOrEmpty(prop.SampleValue) && !string.IsNullOrEmpty(doc.Example))
+                                prop.SampleValue = doc.Example;
+                        }
                     }
                 }
             }
