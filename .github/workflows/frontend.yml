@@ -15,15 +15,15 @@ jobs:
       run:
         working-directory: SchemaFrontend/
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set Node.js 20.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
       - run: corepack enable
       - run: yarn set version stable
       - name: Setup Node.js cache
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: yarn
@@ -32,7 +32,7 @@ jobs:
       - run: yarn run build
       # Upload Frontend
       - name: Upload Frontend
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend
           path: SchemaFrontend/dist/
@@ -40,12 +40,12 @@ jobs:
       - name: Log into gcloud
         id: auth
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) && github.event_name != 'pull_request'
-        uses: 'google-github-actions/auth@v0'
+        uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/445692247363/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
           service_account: 'keen-schema-uploader@machpi-net.iam.gserviceaccount.com'
       - name: Release Frontend
-        uses: 'google-github-actions/upload-cloud-storage@v1'
+        uses: 'google-github-actions/upload-cloud-storage@v2'
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: SchemaFrontend/dist/

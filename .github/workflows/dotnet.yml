@@ -17,7 +17,7 @@ jobs:
       contents: read
       id-token: write # For federated auth
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: 'true'
           submodules: 'true'
@@ -59,7 +59,7 @@ jobs:
         run: SchemaBuilder/bin/Release/SchemaBuilder.exe schema medieval-modded
       # Upload Schemas
       - name: Upload Schemas
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: schemas
           path: schemas/
@@ -72,7 +72,7 @@ jobs:
         run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-industrial
       # Upload Data
       - name: Upload Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: data
           path: data/
@@ -80,12 +80,12 @@ jobs:
       - name: Log into gcloud
         id: auth
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) && github.event_name != 'pull_request'
-        uses: 'google-github-actions/auth@v0'
+        uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/445692247363/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
           service_account: 'keen-schema-uploader@machpi-net.iam.gserviceaccount.com'
       - name: Release Schemas
-        uses: 'google-github-actions/upload-cloud-storage@v1'
+        uses: 'google-github-actions/upload-cloud-storage@v2'
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: schemas/
