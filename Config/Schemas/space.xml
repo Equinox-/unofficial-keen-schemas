@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<Patches>
+<SchemaConfig>
     <Include>shared</Include>
 
     <Game>space-engineers</Game>
@@ -302,4 +302,4 @@
     </Type>
     
     -->
-</Patches>
+</SchemaConfig>

@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
 using Microsoft.Extensions.Logging;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public static class XmlNameConflictResolver
     {

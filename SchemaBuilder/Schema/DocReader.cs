@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using LoxSmoke.DocXml;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public sealed class DocReader
     {

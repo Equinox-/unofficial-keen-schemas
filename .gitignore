@@ -200,3 +200,7 @@ TestDir/
 
 game/
 schemas/
+temp/
+data/
+ProfileOptimization/
+**/GameBinaries/

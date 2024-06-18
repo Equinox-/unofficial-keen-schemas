@@ -2,37 +2,13 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
             Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+    <Import Project="$(SolutionDir)\Config\common.props" />
     <PropertyGroup>
-        <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-        <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
         <ProjectGuid>{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}</ProjectGuid>
         <OutputType>Exe</OutputType>
-        <AppDesignerFolder>Properties</AppDesignerFolder>
         <RootNamespace>SchemaBuilder</RootNamespace>
         <AssemblyName>SchemaBuilder</AssemblyName>
-        <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-        <FileAlignment>512</FileAlignment>
-        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
         <LangVersion>8</LangVersion>
-    </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-        <PlatformTarget>x64</PlatformTarget>
-        <DebugSymbols>true</DebugSymbols>
-        <DebugType>full</DebugType>
-        <Optimize>false</Optimize>
-        <OutputPath>bin\Debug\</OutputPath>
-        <DefineConstants>DEBUG;TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
-    </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-        <PlatformTarget>x64</PlatformTarget>
-        <DebugType>pdbonly</DebugType>
-        <Optimize>true</Optimize>
-        <OutputPath>bin\Release\</OutputPath>
-        <DefineConstants>TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
         <Reference Include="mscorlib" />
@@ -44,28 +20,31 @@
         <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="DefaultValueFromCtor.cs" />
-        <Compile Include="DocReader.cs" />
+        <Compile Include="Config.cs" />
+        <Compile Include="Data\DataConfig.cs" />
+        <Compile Include="Data\DataExtractor.cs" />
         <Compile Include="GameInfo.cs" />
         <Compile Include="GameManager.cs" />
         <Compile Include="HostBuilder.cs" />
         <Compile Include="GameScriptCompiler.cs" />
-        <Compile Include="SchemaConfig.cs" />
         <Compile Include="PostprocessArgs.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
-        <Compile Include="SchemaGenerator.cs" />
-        <Compile Include="SchemaIr.cs" />
-        <Compile Include="SchemaIrCompiler.cs" />
-        <Compile Include="SchemaIrConfig.cs" />
-        <Compile Include="SchemaIrDocumentation.cs" />
-        <Compile Include="SchemaIrToXsd.cs" />
-        <Compile Include="SerializationProxies.cs" />
+        <Compile Include="Schema\DefaultValueFromCtor.cs" />
+        <Compile Include="Schema\DocReader.cs" />
+        <Compile Include="Schema\SchemaConfig.cs" />
+        <Compile Include="Schema\SchemaGenerator.cs" />
+        <Compile Include="Schema\SchemaIr.cs" />
+        <Compile Include="Schema\SchemaIrCompiler.cs" />
+        <Compile Include="Schema\SchemaIrConfig.cs" />
+        <Compile Include="Schema\SchemaIrDocumentation.cs" />
+        <Compile Include="Schema\SchemaIrToXsd.cs" />
+        <Compile Include="Schema\SerializationProxies.cs" />
+        <Compile Include="Schema\XmlInfo.cs" />
+        <Compile Include="Schema\XmlNameConflictResolver.cs" />
+        <Compile Include="Schema\XmlReflection.cs" />
         <Compile Include="TaskAvoidance.cs" />
         <Compile Include="UnionFind.cs" />
-        <Compile Include="XmlInfo.cs" />
-        <Compile Include="XmlNameConflictResolver.cs" />
-        <Compile Include="XmlReflection.cs" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\SteamUtils\SteamUtils.csproj">
@@ -93,12 +72,4 @@
         <PackageReference Include="System.Text.Json" Version="7.0.4" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-    <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-         Other similar extension points exist, see Microsoft.Common.targets.
-    <Target Name="BeforeBuild">
-    </Target>
-    <Target Name="AfterBuild">
-    </Target>
-    -->
-
 </Project>

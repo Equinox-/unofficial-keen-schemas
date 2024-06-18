@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     /// <summary>
     /// Inspects the IL of the first constructor of a member's declaring type to determine a likely default value.

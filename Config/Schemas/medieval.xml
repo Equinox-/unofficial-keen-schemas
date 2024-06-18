@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<Patches>
+<SchemaConfig>
     <Include>shared</Include>
 
     <Game>medieval-engineers</Game>
@@ -17,4 +17,4 @@
     <Type Name="MyObjectBuilder_DefinitionBase">
         <Member Name="Id" Optional="false" />
     </Type>
-</Patches>
+</SchemaConfig>

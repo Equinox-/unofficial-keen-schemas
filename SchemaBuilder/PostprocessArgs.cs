@@ -1,4 +1,5 @@
 ﻿using System.Xml.Schema;
+using SchemaBuilder.Schema;
 
 namespace SchemaBuilder
 {

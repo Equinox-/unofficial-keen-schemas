@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using SchemaBuilder.Schema;
 
 namespace SchemaBuilder
 {
@@ -44,7 +45,8 @@ namespace SchemaBuilder
                 {
                     "MedievalEngineers",
                     "Sandbox",
-                    "VRage"
+                    "VRage",
+                    "HavokWrapper"
                 }
             },
             [Game.SpaceEngineers] = new GameInfo
@@ -67,7 +69,8 @@ namespace SchemaBuilder
                 {
                     "SpaceEngineers",
                     "Sandbox",
-                    "VRage"
+                    "VRage",
+                    "HavokWrapper"
                 }
             }
         };

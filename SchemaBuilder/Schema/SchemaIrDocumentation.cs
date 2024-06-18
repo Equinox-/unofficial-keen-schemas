@@ -1,7 +1,8 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Reflection;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public static class SchemaIrDocumentation
     {
@@ -80,10 +81,13 @@ namespace SchemaBuilder
                                 }
                             }
 
-                            if (doc == null) return;
-                            if (string.IsNullOrEmpty(prop.Documentation) && !string.IsNullOrEmpty(doc.Summary))
+                            if (string.IsNullOrEmpty(prop.Documentation) && !string.IsNullOrEmpty(doc?.Summary))
                                 prop.Documentation = doc.Summary;
-                            if (string.IsNullOrEmpty(prop.SampleValue) && !string.IsNullOrEmpty(doc.Example))
+                            else if (memberInfo.GetCustomAttribute<DescriptionAttribute>() is { } descAttr
+                                     && !string.IsNullOrEmpty(descAttr.Description))
+                                prop.Documentation = descAttr.Description;
+
+                            if (string.IsNullOrEmpty(prop.SampleValue) && !string.IsNullOrEmpty(doc?.Example))
                                 prop.SampleValue = doc.Example;
                         }
                     }

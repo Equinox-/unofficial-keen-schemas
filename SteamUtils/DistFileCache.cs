@@ -64,14 +64,15 @@ namespace SchemaService.SteamUtils
         public void RepairData(string installPath)
         {
             var realPath = System.IO.Path.Combine(installPath, Path);
-            if (!File.Exists(realPath))
+            var info = new FileInfo(realPath);
+            if (!info.Exists)
             {
                 Size = 0;
                 Hash = Array.Empty<byte>();
                 return;
             }
 
-            var fileLength = new FileInfo(realPath).Length;
+            var fileLength = info.Length;
             if (Size == fileLength)
                 return;
             using (var stream = File.OpenRead(realPath))

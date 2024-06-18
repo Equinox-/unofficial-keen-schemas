@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -31,7 +32,7 @@ namespace SchemaService.SteamUtils
                     try
                     {
                         category = categoryCleaner.Replace(category, "");
-                        logFactory.CreateLogger("SteamKit2." + category).LogInformation(msg);
+                        logFactory.CreateLogger("SteamKit2." + category).LogInformation("{Message}", msg);
                     }
                     catch
                     {
@@ -48,6 +49,8 @@ namespace SchemaService.SteamUtils
 
     public class SteamDownloader
     {
+        private static readonly int MaxWorkers = Environment.ProcessorCount;
+
         private const string LockFile = DistFileCache.CacheDir + "\\lock";
 
         private readonly SteamClient _client;
@@ -58,6 +61,7 @@ namespace SchemaService.SteamUtils
         private readonly SteamUnifiedMessages _unifiedMessages;
         private readonly CallbackPump _callbacks;
         private readonly SteamUnifiedMessages.UnifiedService<IPublishedFile> _publishedFiles;
+        private readonly SemaphoreSlim _downloadLock = new SemaphoreSlim(1);
 
         private LoggedOnCallback _loginDetails;
 
@@ -238,16 +242,16 @@ namespace SchemaService.SteamUtils
             }
         }
 
-        public async Task<InstallResult> InstallAppAsync(uint appId, uint depotId, string branch, string installPath, int workerCount,
+        public async Task<InstallResult> InstallAppAsync(uint appId, uint depotId, string branch, string installPath,
             Predicate<string> installFilter, string debugName, string branchPassword = null, string installPrefix = "")
         {
             var manifestId = await GetManifestForBranch(appId, depotId, branch, branchPassword);
-            return await InstallInternalAsync(appId, depotId, manifestId, installPath, workerCount, installFilter, debugName,
+            return await InstallInternalAsync(appId, depotId, manifestId, installPath, installFilter, debugName,
                 branch, installPrefix);
         }
 
         private async Task<InstallResult> InstallInternalAsync(uint appId, uint depotId, ulong manifestId,
-            string installPath, int workerCount, Predicate<string> installFilter, string debugName,
+            string installPath, Predicate<string> installFilter, string debugName,
             string branch, string installPrefix)
         {
             var localCache = new DistFileCache();
@@ -257,8 +261,8 @@ namespace SchemaService.SteamUtils
             {
                 try
                 {
-                    using (var fs = File.OpenRead(localCacheFile))
-                        localCache = (DistFileCache)DistFileCache.Serializer.Deserialize(fs);
+                    using var fs = File.OpenRead(localCacheFile);
+                    localCache = (DistFileCache)DistFileCache.Serializer.Deserialize(fs);
                 }
                 catch
                 {
@@ -307,19 +311,27 @@ namespace SchemaService.SteamUtils
                 var job = InstallJob.Upgrade(_log, appId, depotId, installPath, localCache, manifest, installFilter, result.InstalledFiles, installPrefix);
                 if (job.IsNoOp)
                 {
-                    _log.LogInformation($"Installing {debugName}, already up to date");
+                    _log.LogInformation("Installing {Name}, already up to date", debugName);
                     return result;
                 }
-                using (var timer = new Timer(3000) { AutoReset = true })
+
+                await _downloadLock.WaitAsync();
+                try
                 {
+                    using var timer = new Timer(3000);
+                    timer.AutoReset = true;
                     timer.Elapsed += (sender, args) => _log.LogInformation($"Installing {debugName} progress: {job.ProgressRatio:0.00%}");
                     timer.Start();
-                    await job.Execute(this, workerCount);
+                    await job.Execute(this, MaxWorkers);
+                }
+                finally
+                {
+                    _downloadLock.Release();
                 }
 
 
-                using (var fs = File.Create(localCacheFile))
-                    DistFileCache.Serializer.Serialize(fs, localCache);
+                using var fs = File.Create(localCacheFile);
+                DistFileCache.Serializer.Serialize(fs, localCache);
             }
             finally
             {
@@ -339,7 +351,7 @@ namespace SchemaService.SteamUtils
                 .ToDictionary(item => item.publishedfileid);
         }
 
-        public async Task<CPublishedFile_GetItemInfo_Response.WorkshopItemInfo> InstallModAsync(uint appId, ulong modId, string installPath, int workerCount,
+        public async Task<CPublishedFile_GetItemInfo_Response.WorkshopItemInfo> InstallModAsync(uint appId, ulong modId, string installPath,
             Predicate<string> filter, string debugName)
         {
             var appInfo = await GetAppInfoAsync(appId);
@@ -355,9 +367,7 @@ namespace SchemaService.SteamUtils
             if (result == null)
                 throw new InvalidOperationException($"Failed to latest publication of mod {modId} ({debugName})");
 
-            await InstallInternalAsync(appId, workshopDepot, result.manifest_id, installPath, workerCount, filter,
-                debugName, null, "");
-            _log.LogInformation($"Installed mod {result.published_file_id}, manifest {result.manifest_id} ({debugName})");
+            await InstallInternalAsync(appId, workshopDepot, result.manifest_id, installPath, filter, debugName, null, "");
             return result;
         }
     }

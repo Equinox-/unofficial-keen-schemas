@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 // ReSharper disable NonReadonlyMemberInGetHashCode
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public sealed class SchemaIr
     {

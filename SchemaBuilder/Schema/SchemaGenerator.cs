@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,7 +12,7 @@ using System.Xml.Schema;
 using System.Xml.Serialization;
 using Microsoft.Extensions.Logging;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public class SchemaGenerator
     {
@@ -30,13 +29,13 @@ namespace SchemaBuilder
 
         public async Task Generate(string name)
         {
-            _log.LogInformation($"Generating schema {name}");
+            _log.LogInformation("Generating schema {Name}", name);
 
-            var config = SchemaConfig.Read("patches", name);
+            var config = SchemaConfig.Read("Config/Schemas", name);
 
             var gameInfo = GameInfo.Games[config.Game];
             var gameInstall = await _games.RestoreGame(config.Game, config.SteamBranch);
-            var modInstall = await gameInstall.LoadMods(config.Mods.ToArray());
+            var modInstall = await gameInstall.LoadMods(config.Mods, mod => !config.ExcludeMods.Contains(mod));
 
             // Generate schema
             var info = new XmlInfo(_log, config);
@@ -45,7 +44,7 @@ namespace SchemaBuilder
             var schemas = GenerateInternal(info);
 
             // Compile schema
-            schemas.Compile((sender, args) => _log.LogInformation($"Schema validation {args}"), false);
+            schemas.Compile((sender, args) => _log.LogInformation("Schema validation {Args}", args.ToString()), false);
             if (schemas.Count == 0)
                 throw new Exception("No schemas generated");
             if (schemas.Count > 1)

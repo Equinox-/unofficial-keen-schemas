@@ -103,7 +103,7 @@ namespace SchemaService.SteamUtils
                 {
                     _log.LogWarning(
                         err,
-                        "Failed to download chunk path={0} size={1}. Abandoning CDN server {2}",
+                        "Failed to download chunk path={Path} size={Size}. Abandoning CDN server {Server}",
                         workItem.Owner.InstallRelativePath,
                         workItem.ChunkData.UncompressedLength,
                         server.Host);

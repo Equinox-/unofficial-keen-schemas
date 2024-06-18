@@ -9,7 +9,7 @@ using System.Xml.Serialization;
 using DocXml.Reflection;
 using Microsoft.Extensions.Logging;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public sealed class XmlInfo
     {

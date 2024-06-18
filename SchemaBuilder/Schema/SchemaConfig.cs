@@ -1,36 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Serialization;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
-    [XmlRoot("Patches")]
-    public class SchemaConfig : IInheritable<SchemaConfig>
+    [XmlRoot("SchemaConfig")]
+    public class SchemaConfig : ConfigBase<SchemaConfig>
     {
         private readonly Dictionary<string, TypePatch> _types = new Dictionary<string, TypePatch>();
         private readonly Dictionary<string, TypeAlias> _typeAliases = new Dictionary<string, TypeAlias>();
-
-        [XmlElement("Include")]
-        public List<string> Include = new List<string>();
-
-        [XmlElement]
-        public Game? GameOptional;
-
-        [XmlElement]
-        public Game Game
-        {
-            get => GameOptional ?? throw new Exception("Schema does not specify a game");
-            set => GameOptional = value;
-        }
-
-        [XmlElement]
-        public string SteamBranch;
-
-        [XmlElement("Mod")]
-        public readonly HashSet<ulong> Mods = new HashSet<ulong>();
 
         public IReadOnlyDictionary<string, TypeAlias> TypeAliases => _typeAliases;
 
@@ -72,22 +52,12 @@ namespace SchemaBuilder
                     _typeAliases.Add(alias.CSharpType, alias);
             }
         }
-
-        public TypePatch TypePatch(string name) => _types.TryGetValue(name, out var patch) ? patch : null;
-
-        public static readonly XmlSerializer Serializer = new XmlSerializer(typeof(SchemaConfig));
-
-        public void InheritFrom(SchemaConfig other)
+        public override void InheritFrom(SchemaConfig other)
         {
-            GameOptional ??= other.GameOptional;
-            if (GameOptional != null && other.GameOptional != null && Game != other.Game)
-                throw new Exception($"Attempting to inherit from schema for {other.Game} but this schema is for {Game}");
-            SteamBranch ??= other.SteamBranch;
+            base.InheritFrom(other);
             AllOptional = AllOptional.OrInherit(other.AllOptional);
             foreach (var suppressed in other.SuppressedTypes)
                 SuppressedTypes.Add(suppressed);
-            foreach (var mod in other.Mods)
-                Mods.Add(mod);
 
             _types.OrInherit(other._types);
 
@@ -96,73 +66,7 @@ namespace SchemaBuilder
                     _typeAliases.Add(alias.Key, alias.Value);
         }
 
-        public static SchemaConfig Read(string dir, string name)
-        {
-            var context = new Stack<string>();
-            var loadedFiles = new HashSet<string>();
-            var loaded = new List<SchemaConfig>();
-
-            ReadRecursive(name);
-
-            var final = loaded[0];
-            for (var i = 1; i < loaded.Count; i++)
-                final.InheritFrom(loaded[i]);
-
-            if (final.GameOptional == null)
-                throw new Exception($"Schema tree {name} does not specify a game ({string.Join(", ", loadedFiles)})");
-            if (final.SteamBranch == null)
-                throw new Exception($"Schema tree {name} does not specify a steam branch ({string.Join(", ", loadedFiles)})");
-            return final;
-
-            void ReadRecursive(string file)
-            {
-                if (file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-                    file = file.Substring(0, file.Length - 4);
-                if (!loadedFiles.Add(file))
-                    return;
-
-                context.Push(Path.GetFileNameWithoutExtension(file));
-                try
-                {
-                    SchemaConfig cfg;
-                    try
-                    {
-                        using var stream = File.OpenRead(Path.Combine(dir, file + ".xml"));
-                        cfg = (SchemaConfig)Serializer.Deserialize(stream);
-                    }
-                    catch (Exception err)
-                    {
-                        throw new Exception($"Failed to load config file {file} via {string.Join(", ", context)}", err);
-                    }
-
-                    loaded.Add(cfg);
-                    foreach (var included in cfg.Include)
-                        ReadRecursive(included);
-                }
-                finally
-                {
-                    context.Pop();
-                }
-            }
-        }
-    }
-
-    public enum Game
-    {
-        [XmlEnum("medieval-engineers")]
-        MedievalEngineers,
-
-        [XmlEnum("space-engineers")]
-        SpaceEngineers,
-    }
-
-    public interface IInheritable<in T>
-    {
-        /// <summary>
-        /// Updates this instance with default values from the other instance.
-        /// This instance takes priority.
-        /// </summary>
-        void InheritFrom(T other);
+        public TypePatch TypePatch(string name) => _types.TryGetValue(name, out var patch) ? patch : null;
     }
 
 

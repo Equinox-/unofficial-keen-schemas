@@ -4,7 +4,7 @@ on:
     paths:
       - SteamUtils/**
       - SchemaBuilder/**
-      - patches/**
+      - Config/**
       - .github/workflows/dotnet.yml
   workflow_dispatch: {}
   schedule:
@@ -38,31 +38,44 @@ jobs:
         run: msbuild /p:Configuration=Release -t:restore SchemaGenerator.sln
       # Compile
       - name: Build
-        run: msbuild /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
+        run: msbuild /p:SolutionDir=./ /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
       # Restore game cache keys.
       - name: Generate game cache key
         id: game_cache_key
-        run: powershell -Command echo "key=game-cache-v2-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
+        run: powershell -Command echo "key=game-cache-v3-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
       - name: Cache Game Binaries
         uses: actions/cache@v3
         with:
           key: ${{ steps.game_cache_key.outputs.key }}
           restore-keys: |
-            game-cache-v2-
+            game-cache-v3-
           path: game/
       # Build Schemas
       - name: Generate vanilla SE schema
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe space-vanilla
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe schema space-vanilla
       - name: Generate vanilla ME schema
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-vanilla
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe schema medieval-vanilla
       - name: Generate modded ME schema
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe medieval-modded
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe schema medieval-modded
       # Upload Schemas
       - name: Upload Schemas
         uses: actions/upload-artifact@v3
         with:
           name: schemas
           path: schemas/
+      # Build Data Files
+      - name: Generate vanilla SE data
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data space-vanilla
+      - name: Generate vanilla ME data
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-vanilla
+      - name: Generate industrial ME data
+        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-industrial
+      # Upload Data
+      - name: Upload Data
+        uses: actions/upload-artifact@v3
+        with:
+          name: data
+          path: data/
       # Publish to GCS
       - name: Log into gcloud
         id: auth

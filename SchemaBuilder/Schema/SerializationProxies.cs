@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Xml.Serialization;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public static class SerializationProxies
     {

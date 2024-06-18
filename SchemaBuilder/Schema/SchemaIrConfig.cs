@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public static class SchemaIrConfig
     {

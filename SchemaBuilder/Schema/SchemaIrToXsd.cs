@@ -4,7 +4,7 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Schema;
 
-namespace SchemaBuilder
+namespace SchemaBuilder.Schema
 {
     public static class SchemaPrimitiveToXsd
     {

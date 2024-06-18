@@ -1,5 +1,8 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using SchemaBuilder.Data;
+using SchemaBuilder.Schema;
 using SchemaService.SteamUtils;
 using SteamKit2;
 
@@ -16,14 +19,30 @@ namespace SchemaBuilder
                     svc.AddSingleton<GameManager>();
                     svc.AddHostedService<GameManager>();
                     svc.AddSingleton<SchemaGenerator>();
+                    svc.AddSingleton<DataExtractor>();
                     svc.AddSingleton<DocReader>();
                 })
                 .Build();
             await host.StartAsync();
-            var schemas = host.Services.GetRequiredService<SchemaGenerator>();
             try
             {
-                await schemas.Generate(args[0]);
+                switch (args[0])
+                {
+                    case "schema":
+                    {
+                        var schemas = host.Services.GetRequiredService<SchemaGenerator>();
+                        await schemas.Generate(args[1]);
+                        break;
+                    }
+                    case "data":
+                    {
+                        var data = host.Services.GetRequiredService<DataExtractor>();
+                        await data.Generate(args[1]);
+                        break;
+                    }
+                    default:
+                        throw new ArgumentException($"Unsupported mode: {args[0]}");
+                }
             }
             finally
             {
