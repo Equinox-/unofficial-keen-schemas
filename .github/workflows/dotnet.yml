@@ -38,7 +38,7 @@ jobs:
         run: msbuild /p:Configuration=Release -t:restore SchemaGenerator.sln
       # Compile
       - name: Build
-        run: msbuild /p:SolutionDir=./ /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
+        run: msbuild "/p:SolutionDir=$env:GITHUB_WORKSPACE" /p:Configuration=Release SchemaBuilder/SchemaBuilder.csproj
       # Restore game cache keys.
       - name: Generate game cache key
         id: game_cache_key

@@ -198,9 +198,9 @@ PublishScripts/
 TestDir/
 .idea/
 
-game/
-schemas/
-temp/
-data/
-ProfileOptimization/
+/game/
+/schemas/
+/temp/
+/data/
+/ProfileOptimization/
 **/GameBinaries/
