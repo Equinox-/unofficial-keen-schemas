@@ -123,7 +123,7 @@ namespace SchemaBuilder
         private static readonly ThreadLocal<SHA1> Hasher = new ThreadLocal<SHA1>(SHA1.Create);
 
 
-        private struct CachedFingerprint
+        public struct CachedFingerprint
         {
             private static readonly ConcurrentDictionary<string, CachedFingerprint> Cache = new ConcurrentDictionary<string, CachedFingerprint>();
 
@@ -159,7 +159,7 @@ namespace SchemaBuilder
             }
         }
 
-        private readonly struct Fingerprint : IEquatable<Fingerprint>
+        public readonly struct Fingerprint : IEquatable<Fingerprint>
         {
             public readonly long Size;
             public readonly long Time;

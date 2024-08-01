@@ -9,7 +9,7 @@
     <Import_RootNamespace>DataExtractorShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)DataWriter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PageWriter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IDataExtractor.cs" />
   </ItemGroup>
 </Project>

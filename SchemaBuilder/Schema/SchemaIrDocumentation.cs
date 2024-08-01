@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace SchemaBuilder.Schema
@@ -52,8 +53,12 @@ namespace SchemaBuilder.Schema
                     {
                         var memberInfo = member.Value.Member;
                         var doc = docs.GetMemberComment(memberInfo);
-                        if (objIr.Attributes.TryGetValue(member.Key, out var attr)) Inject(attr);
-                        if (objIr.Elements.TryGetValue(member.Key, out var element)) Inject(element);
+                        if (objIr.Attributes.TryGetValue(member.Value.AttributeName ?? member.Key, out var attr))
+                            Inject(attr);
+                        var elementNames = member.Value.ElementNames;
+                        foreach (var elementName in elementNames.Count == 0 ? new[] { member.Key } : elementNames)
+                            if (objIr.Elements.TryGetValue(elementName, out var element))
+                                Inject(element);
 
                         continue;
 

@@ -5,7 +5,9 @@ namespace DataExtractorSpace
 {
     public class BlockDataExtractor : IDataExtractor
     {
-        public void Run(DataWriter writer)
+        public string PageName => "Blocks/Register";
+
+        public void Run(PageWriter writer)
         {
             foreach (var def in MyDefinitionManager.Static.GetBlockVariantGroupDefinitions().Values)
             {

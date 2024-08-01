@@ -26,7 +26,7 @@ namespace SchemaBuilder
         }
 
         private const int Workers = 4;
-        private const bool Skip = false;
+        private const bool Skip = true;
 
         private readonly SteamDownloader _steamInternal;
         private readonly ILogger<GameManager> _log;
@@ -232,29 +232,19 @@ namespace SchemaBuilder
             var resolved = await _owner.ResolveMods(Game, modsCopy);
             var installed = new List<ModInstall>(resolved.Count);
             _log.LogInformation("Installing {Count} mods", modsCopy.Length);
-            const int batchSize = 8;
-            for (var i = 0; i < resolved.Count; i += batchSize)
+            foreach (var item in resolved)
             {
-                var batch = new List<Task<ModInstall>>(batchSize);
-                for (var j = i; j < Math.Min(resolved.Count, i + batchSize); j++)
-                {
-                    var item = resolved[j];
-                    if (filter != null && !filter(item.publishedfileid)) continue; 
-                    batch.Add(Task.Run(async () =>
-                    {
-                        var modSources = await _owner.RestoreMod(Game, item);
-                        var modDependencies = installed.ToList();
-                        return new ModInstall(_log,
-                            this,
-                            item,
-                            modSources,
-                            Path.Combine(modSources, "..", "binaries"),
-                            modDependencies);
-                    }));
-                }
-                foreach (var task in batch)
-                    installed.Add(await task);
+                if (filter != null && !filter(item.publishedfileid)) continue;
+                var modSources = await _owner.RestoreMod(Game, item);
+                var modDependencies = installed.ToList();
+                installed.Add(new ModInstall(_log,
+                    this,
+                    item,
+                    modSources,
+                    Path.Combine(modSources, "..", "binaries"),
+                    modDependencies));
             }
+
             _log.LogInformation("Installed {Count} mods", modsCopy.Length);
             return installed;
         }
@@ -375,12 +365,16 @@ namespace SchemaBuilder
                 () =>
                 {
                     Directory.CreateDirectory(_binariesDir);
+                    var messages = new List<string>();
                     if (compiler.CompileInto(new CompilationArgs
                         {
                             AssemblyName = $"mod-{Details.publishedfileid}",
                             ScriptFiles = scriptFiles,
                             References = references
-                        }, dllFile, docFile)) return;
+                        }, dllFile, docFile, messages)) return;
+                    foreach (var msg in messages)
+                        _log.LogWarning(msg);
+
                     File.Delete(dllFile);
                     File.Delete(docFile);
                 },

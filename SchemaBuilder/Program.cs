@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SchemaBuilder.Data;
@@ -21,6 +22,7 @@ namespace SchemaBuilder
                     svc.AddSingleton<SchemaGenerator>();
                     svc.AddSingleton<DataExtractor>();
                     svc.AddSingleton<DocReader>();
+                    svc.AddSingleton<WikiWriter>();
                 })
                 .Build();
             await host.StartAsync();
@@ -38,6 +40,12 @@ namespace SchemaBuilder
                     {
                         var data = host.Services.GetRequiredService<DataExtractor>();
                         await data.Generate(args[1]);
+                        break;
+                    }
+                    case "wiki":
+                    {
+                        var writer = host.Services.GetRequiredService<WikiWriter>();
+                        await writer.Write(args[1]);
                         break;
                     }
                     default:

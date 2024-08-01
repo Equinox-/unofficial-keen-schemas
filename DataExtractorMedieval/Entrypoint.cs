@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -14,6 +13,7 @@ using VRage.Input;
 using VRage.Logging;
 using VRage.Meta;
 using VRage.ParallelWorkers;
+using VRage.ParallelWorkers.Work;
 using VRage.Systems;
 using VRageRender;
 
@@ -23,11 +23,11 @@ namespace DataExtractorMedieval
     {
         public static void Main(string[] args)
         {
-            Run(Console.WriteLine, args[0], Array.Empty<Tuple<ulong, string>>());
+            Run(args[0], args[1], Array.Empty<Tuple<ulong, string>>());
         }
 
         // ReSharper disable once MemberCanBePrivate.Global
-        public static void Run(Action<string> writeLine, string gameContentDir, Tuple<ulong, string>[] mods)
+        public static void Run(string outputDirectory, string gameContentDir, Tuple<ulong, string>[] mods)
         {
             using (var log = new MyLog())
             {
@@ -72,6 +72,9 @@ namespace DataExtractorMedieval
                 }.Select(Assembly.Load));
 
                 HkBaseSystem.Init(MyLog.DefaultLogger);
+                var workId = Workers.Manager.EnqueueWorkAll(ActionWork.Get(() => HkBaseSystem.InitThread(Thread.CurrentThread.Name)));
+                Workers.Manager.WaitOn(workId);
+
                 MyFileSystem.SetAdditionalContentPaths(mods.Select(x => x.Item2).ToList());
                 MyGameInput.Init(true);
 
@@ -84,7 +87,7 @@ namespace DataExtractorMedieval
                     .ToList());
                 definitions.InitDefinitions();
 
-                DataExtractor.RunAll(writeLine);
+                DataExtractor.RunAll(new DataWriter(outputDirectory));
             }
         }
     }

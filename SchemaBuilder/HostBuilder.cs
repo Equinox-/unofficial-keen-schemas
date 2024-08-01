@@ -27,7 +27,7 @@ namespace SchemaBuilder
             _services.AddSingleton<IHost, HostImpl>();
 
             _services.AddSingleton(svc => LoggerFactory.Create(cfg => cfg
-                .AddSimpleConsole()));
+                .AddSimpleConsole(opts => opts.TimestampFormat = "yyyy-MM-ddTHH:mm:ss ")));
             _services.Add(new ServiceDescriptor(typeof(ILogger<>), typeof (Logger<>), ServiceLifetime.Singleton));
 
             var services = ServiceProviderFactory.CreateServiceProvider(ServiceProviderFactory.CreateBuilder(_services));

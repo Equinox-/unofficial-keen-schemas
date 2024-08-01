@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -22,16 +23,16 @@ namespace SchemaBuilder
 
     public abstract class GameScriptCompiler
     {
-        protected abstract CompilationWithAnalyzers CreateCompilation(CompilationArgs args);
-        protected abstract bool CheckAfterEmit(EmitResult emitResult, CompilationWithAnalyzers compilation);
+        protected abstract CompilationWithAnalyzers CreateCompilation(CompilationArgs args, List<string> messages);
+        protected abstract bool CheckAfterEmit(EmitResult emitResult, CompilationWithAnalyzers compilation, List<string> messages);
 
-        public bool CompileInto(CompilationArgs args, string dllFile, string docFile)
+        public bool CompileInto(CompilationArgs args, string dllFile, string docFile, List<string> messages)
         {
-            var compilation = CreateCompilation(args);
+            var compilation = CreateCompilation(args, messages);
             using var dllStream = File.Open(dllFile, FileMode.Create, FileAccess.Write);
             using var docStream = File.Open(docFile, FileMode.Create, FileAccess.Write);
             var emit = compilation.Compilation.Emit(dllStream, xmlDocumentationStream: docStream);
-            return emit.Success & CheckAfterEmit(emit, compilation);
+            return emit.Success & CheckAfterEmit(emit, compilation, messages);
         }
     }
 
@@ -44,6 +45,7 @@ namespace SchemaBuilder
         private readonly FieldInfo _diagnosticAnalyzer;
         private readonly MethodInfo _createCompilation;
         private readonly MethodInfo _analyzeDiagnostics;
+        private readonly FieldInfo _messageText;
 
         public class ConfigDeserializationProxy
         {
@@ -131,9 +133,10 @@ namespace SchemaBuilder
             _listOfMessageCtor = typeof(List<>).MakeGenericType(messageType)
                                      .GetConstructor(Type.EmptyTypes)
                                  ?? throw new Exception("Failed to find List<Message> ctor");
+            _messageText = messageType.GetField("Text") ?? throw new Exception("Failed to find Message.Text");
         }
 
-        protected override CompilationWithAnalyzers CreateCompilation(CompilationArgs args)
+        protected override CompilationWithAnalyzers CreateCompilation(CompilationArgs args, List<string> messages)
         {
             var compiler = _compilerInstance.Result;
             var rawCompilation = (CSharpCompilation)_createCompilation.Invoke(compiler, new[]
@@ -151,7 +154,7 @@ namespace SchemaBuilder
             ));
         }
 
-        protected override bool CheckAfterEmit(EmitResult emitResult, CompilationWithAnalyzers compilation)
+        protected override bool CheckAfterEmit(EmitResult emitResult, CompilationWithAnalyzers compilation, List<string> messagesOut)
         {
             var compiler = _compilerInstance.Result;
             var messages = _listOfMessageCtor.Invoke(Array.Empty<object>());
@@ -159,6 +162,8 @@ namespace SchemaBuilder
             _analyzeDiagnostics.Invoke(compiler, args);
             args[0] = compilation.GetAllDiagnosticsAsync().Result;
             _analyzeDiagnostics.Invoke(compiler, args);
+            foreach (var msg in (IEnumerable) messages)
+                messagesOut.Add(_messageText.GetValue(msg).ToString());
             return (bool)args[2];
         }
     }

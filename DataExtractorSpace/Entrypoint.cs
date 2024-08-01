@@ -32,11 +32,11 @@ namespace DataExtractorSpace
     {
         public static void Main(string[] args)
         {
-            Run(Console.WriteLine, args[0], Array.Empty<Tuple<ulong, string>>());
+            Run(args[0], args[1], Array.Empty<Tuple<ulong, string>>());
         }
 
         // ReSharper disable once MemberCanBePrivate.Global
-        public static void Run(Action<string> writeLine, string gameContentDir, Tuple<ulong, string>[] mods)
+        public static void Run(string outputDirectory, string gameContentDir, Tuple<ulong, string>[] mods)
         {
             var log = new MyLog();
             try
@@ -57,6 +57,7 @@ namespace DataExtractorSpace
                 HkBaseSystem.Init(
                     line => MyLog.Default.WriteLine(line), false,
                     MyVRage.Platform.System.CreateSharedCriticalSection(false));
+                Parallel.StartOnEachWorker(() => HkBaseSystem.InitThread(Thread.CurrentThread.Name));
                 MyPlugins.RegisterGameAssemblyFile(MyPerGameSettings.GameModAssembly);
                 MyPlugins.RegisterGameObjectBuildersAssemblyFile(MyPerGameSettings.GameModObjBuildersAssembly);
                 MyPlugins.RegisterSandboxAssemblyFile(MyPerGameSettings.SandboxAssembly);
@@ -77,7 +78,7 @@ namespace DataExtractorSpace
 
                 definitions.LoadData(modItems);
 
-                DataExtractor.RunAll(writeLine);
+                DataExtractor.RunAll(new DataWriter(outputDirectory));
             }
             finally
             {

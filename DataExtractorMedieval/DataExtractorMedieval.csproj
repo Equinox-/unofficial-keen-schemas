@@ -48,7 +48,12 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="BlockDataExtractor.cs" />
+        <Compile Include="BlockVariantDataExtractor.cs" />
         <Compile Include="Entrypoint.cs" />
+        <Compile Include="ItemDataExtractor.cs" />
+        <Compile Include="ItemTagExtractor.cs" />
+        <Compile Include="RecipeDataExtractor.cs" />
+        <Compile Include="Utils.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <Import Project="..\DataExtractorShared\DataExtractorShared.projitems" Label="Shared" />

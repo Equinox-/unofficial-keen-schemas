@@ -34,27 +34,25 @@ namespace SchemaBuilder.Data
 
             // Load the game
             gameInstall.LoadAssemblies();
-            
+
             // Load the mods
             foreach (var mod in modInstall)
                 mod.LoadAssemblies();
-            
+
             // Compile data extractor.
             var dataExtractor = LoadExtractor(gameInstall, modInstall);
 
-            var dataPath = Path.Combine("data", name + ".txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(dataPath)!);
-            using var outStream = File.Open(dataPath, FileMode.Create, FileAccess.Write);
-            using var outWriter = new StreamWriter(outStream);
-            // ReSharper disable once AccessToDisposedClosure
+            var dataPath = Path.Combine("data", name);
+            if (Directory.Exists(dataPath))
+                Directory.Delete(dataPath, true);
+            Directory.CreateDirectory(dataPath);
             dataExtractor(
-                line => outWriter.WriteLine(line),
+                dataPath,
                 gameInstall.ContentDir,
                 modInstall.Select(mod => Tuple.Create(mod.Details.publishedfileid, mod.ContentDir)).ToArray());
-            await outWriter.FlushAsync();
         }
 
-        private delegate void RunExtractor(Action<string> writeLine, string gameContent, Tuple<ulong, string>[] modContent);
+        private delegate void RunExtractor(string outputDirectory, string gameContent, Tuple<ulong, string>[] modContent);
 
         private RunExtractor LoadExtractor(GameInstall install, IReadOnlyList<ModInstall> mods)
         {

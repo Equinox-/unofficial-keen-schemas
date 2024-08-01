@@ -15,8 +15,6 @@ namespace SchemaBuilder.Schema
 
             foreach (var type in schema.SchemaTypes.Values.OfType<XmlSchemaType>())
             {
-                if (type.Name == "Parameter")
-                    Debugger.Break();
                 ir.Types.Add(type.Name, CompileType(type));
             }
 
