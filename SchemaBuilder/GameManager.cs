@@ -25,8 +25,7 @@ namespace SchemaBuilder
             return false;
         }
 
-        private const int Workers = 4;
-        private const bool Skip = true;
+        private const bool Skip = false;
 
         private readonly SteamDownloader _steamInternal;
         private readonly ILogger<GameManager> _log;
