@@ -129,14 +129,19 @@ namespace SchemaBuilder
 
         private async Task<T> RunWithRetry<T>(Func<SteamDownloader, Task<T>> action)
         {
-            try
+            var attempt = 0;
+            while (true)
             {
-                return await action(_steamInternal);
-            }
-            catch
-            {
-                await Task.Delay(TimeSpan.FromSeconds(10));
-                return await action(_steamInternal);
+                try
+                {
+                    return await action(_steamInternal);
+                }
+                catch
+                {
+                    if (attempt >= 5) throw;
+                    await Task.Delay(TimeSpan.FromSeconds(10 * Math.Pow(2, attempt)));
+                    attempt++;
+                }
             }
         }
 
