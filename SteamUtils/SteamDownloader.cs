@@ -184,26 +184,39 @@ namespace SchemaService.SteamUtils
                 throw new InvalidOperationException("Already logged in.");
 
             _callbacks.Start();
-            _client.Connect();
+            var okay = false;
+            try
+            {
+                _client.Connect();
 
-            var connectResult = await _callbacks
-                .WaitForAsync(x => x is ConnectedCallback || x is DisconnectedCallback);
+                var connectResult = await _callbacks
+                    .WaitForAsync(x => x is ConnectedCallback || x is DisconnectedCallback);
 
-            if (connectResult is DisconnectedCallback)
-                throw new Exception("Failed to connect to Steam.");
+                if (connectResult is DisconnectedCallback)
+                    throw new Exception("Failed to connect to Steam.");
 
-            if (details == null)
-                _user.LogOnAnonymous();
-            else
-                _user.LogOn(details);
+                if (details == null)
+                    _user.LogOnAnonymous();
+                else
+                    _user.LogOn(details);
 
-            var loginResult = await _callbacks.WaitForAsync<LoggedOnCallback>();
-            if (loginResult.Result != EResult.OK)
-                throw new Exception($"Failed to log into Steam: {loginResult.Result:G}");
+                var loginResult = await _callbacks.WaitForAsync<LoggedOnCallback>();
+                if (loginResult.Result != EResult.OK)
+                    throw new Exception($"Failed to log into Steam: {loginResult.Result:G}");
 
-            await CdnPool.Initialize((int)loginResult.CellID);
-            _loginDetails = loginResult;
-            return loginResult;
+                await CdnPool.Initialize((int)loginResult.CellID);
+                _loginDetails = loginResult;
+                okay = true;
+                return loginResult;
+            }
+            finally
+            {
+                if (!okay)
+                {
+                    _client.Disconnect();
+                    OnDisconnect();
+                }
+            }
         }
 
         /// <summary>
