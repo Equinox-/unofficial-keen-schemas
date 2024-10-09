@@ -27,8 +27,3 @@
 | Rider & IntelliJ   | None                                                                                   | XSD 1.0     | ✅                |
 | Visual Studio      | None                                                                                   | XSD 1.0     | ❌                |
 
-## FAQ
-
-- The game thinks my XML is valid but the validator says "One of the following {long list of element names} is expected"
-    - XSD 1.0 enforces a strict element order in most cases, so unless the elements in your XML file match the order in the XSD file it will give an error.
-      If you can setup a XSD 1.1 validator this issue will go away, otherwise you can just reorder your XML file to match the schema.
