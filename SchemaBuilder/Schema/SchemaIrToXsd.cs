@@ -204,7 +204,7 @@ namespace SchemaBuilder.Schema
                     var xsd = new XmlSchemaAttribute
                     {
                         Name = attr.Key,
-                        DefaultValue = attr.Value.DefaultValue,
+                        DefaultValue = FixDefaultValue(attr.Value.DefaultValue),
                     };
                     HandleSimpleTypeReference(attr.Value.Type, out var xml, out var optional);
                     xsd.SchemaTypeName = xml;
@@ -220,7 +220,7 @@ namespace SchemaBuilder.Schema
             internal XmlSchemaElement CompileElement(KeyValuePair<string, PropertyIr> property)
             {
                 var element = CompileElementType(property.Key, property.Value.Type);
-                element.DefaultValue = property.Value.DefaultValue;
+                element.DefaultValue = FixDefaultValue(property.Value.DefaultValue);
                 return WithDocumentation(element, property.Value);
 
                 XmlSchemaElement CompileElementType(string name, TypeReferenceIr type)
@@ -320,6 +320,19 @@ namespace SchemaBuilder.Schema
                     Markup = new XmlNode[] { new XmlDocument().CreateTextNode(baseElement.Documentation) }
                 });
                 return annotated;
+            }
+
+            private static readonly string PositiveInfinityStr = $"{float.PositiveInfinity}";
+            private static readonly string NegativeInfinityStr = $"{float.NegativeInfinity}";
+
+            private static string FixDefaultValue(string defaultValue)
+            {
+                if (defaultValue == PositiveInfinityStr)
+                    return "INF";
+                if (defaultValue == NegativeInfinityStr)
+                    return "-INF";
+                // No special formatting needed for other cases.
+                return defaultValue;
             }
         }
     }
