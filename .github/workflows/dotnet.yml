@@ -42,7 +42,7 @@ jobs:
       # Restore game cache keys.
       - name: Generate game cache key
         id: game_cache_key
-        run: powershell -Command echo "key=game-cache-v3-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
+        run: powershell -Command echo "key=game-cache-v4-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
       - name: Cache Game Binaries
         uses: actions/cache@v3
         with:

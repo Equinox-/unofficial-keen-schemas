@@ -14,27 +14,17 @@ namespace SchemaBuilder
 {
     public class GameManager : IHostedService
     {
-        // Data files required for definition loading.
-        private static readonly string[] DataFileExtensions = { ".mwm", ".sbc", ".resx", ".xml" };
-
-        private static bool IsDataFile(string path)
-        {
-            foreach (var ext in DataFileExtensions)
-                if (path.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            return false;
-        }
-
         private const bool Skip = false;
 
-        private readonly SteamDownloader _steamInternal;
+        private readonly Func<SteamDownloader> _steamFactory;
+        private SteamDownloader _steamInternal;
         private readonly ILogger<GameManager> _log;
 
         private readonly string _rootDir;
 
-        public GameManager(SteamDownloader steam, ILogger<GameManager> log)
+        public GameManager(Func<SteamDownloader> steamFactory, ILogger<GameManager> log)
         {
-            _steamInternal = steam;
+            _steamFactory = steamFactory;
             _log = log;
             _rootDir = Path.GetFullPath("./");
         }
@@ -49,7 +39,7 @@ namespace SchemaBuilder
             var installDir = Path.Combine(_rootDir, "game", game.ToString(), branch);
             if (!Skip)
                 await RunWithRetry(steam => steam.InstallAppAsync(info.SteamDedicatedAppId, info.SteamDedicatedDepotId, branch, installDir,
-                    path => path.StartsWith(BinariesDir) || IsDataFile(path), game.ToString()));
+                    path => path.StartsWith(BinariesDir), game.ToString()));
 
             return new GameInstall(this, _log, game, Path.Combine(installDir, ContentDir), Path.Combine(installDir, BinariesDir));
         }
@@ -121,8 +111,7 @@ namespace SchemaBuilder
             if (!Skip)
                 await RunWithRetry(steam => steam.InstallModAsync(info.SteamGameAppId, details.publishedfileid, installDir,
                     path => path.IndexOf("Data/Scripts", StringComparison.OrdinalIgnoreCase) >= 0
-                            || path.IndexOf("Data\\Scripts", StringComparison.OrdinalIgnoreCase) >= 0
-                            || IsDataFile(path),
+                            || path.IndexOf("Data\\Scripts", StringComparison.OrdinalIgnoreCase) >= 0,
                     $"{game}-{details.publishedfileid}-{details.title}"));
             return installDir;
         }
@@ -134,18 +123,40 @@ namespace SchemaBuilder
             {
                 try
                 {
+                    if (_steamInternal == null)
+                    {
+                        _steamInternal = _steamFactory();
+                        await _steamInternal.LoginAsync();
+                    }
                     return await action(_steamInternal);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _log.LogInformation(ex, "Failed to run task");
                     if (attempt >= 5) throw;
-                    await Task.Delay(TimeSpan.FromSeconds(10 * Math.Pow(2, attempt)));
+                    // await Task.Delay(TimeSpan.FromSeconds(10 * Math.Pow(2, attempt)));
                     attempt++;
+                }
+                finally
+                {
+                    if (_steamInternal is { IsLoggedIn: false })
+                    {
+                        try
+                        {
+                            await _steamInternal.LogoutAsync();
+                        }
+                        catch (Exception e)
+                        {
+                            _log.LogWarning(e, $"Failed to logout");
+                        }
+
+                        _steamInternal = null;
+                    }
                 }
             }
         }
 
-        public Task StartAsync(CancellationToken cancellationToken) => RunWithRetry(steam => steam.LoginAsync());
+        public Task StartAsync(CancellationToken cancellationToken) => RunWithRetry(_ => Task.FromResult(0));
 
         public Task StopAsync(CancellationToken cancellationToken) => RunWithRetry(async steam =>
         {

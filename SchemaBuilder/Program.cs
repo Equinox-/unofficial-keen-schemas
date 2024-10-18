@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SchemaBuilder.Schema;
 using SchemaService.SteamUtils;
 using SteamKit2;
+using SteamKit2.Discovery;
 
 namespace SchemaBuilder
 {
@@ -14,7 +15,7 @@ namespace SchemaBuilder
             using var host = new HostBuilder()
                 .ConfigureServices(svc =>
                 {
-                    svc.AddSteamDownloader(SteamConfiguration.Create(x => { }));
+                    svc.AddSteamDownloader(SteamConfiguration.Create(x => x.WithServerListProvider(new MemoryServerListProvider())));
                     svc.AddSingleton<GameManager>();
                     svc.AddHostedService<GameManager>();
                     svc.AddSingleton<SchemaGenerator>();
