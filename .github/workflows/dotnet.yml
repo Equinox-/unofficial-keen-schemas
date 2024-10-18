@@ -63,19 +63,6 @@ jobs:
         with:
           name: schemas
           path: schemas/
-      # Build Data Files
-      - name: Generate vanilla SE data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data space-vanilla
-      - name: Generate vanilla ME data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-vanilla
-      - name: Generate industrial ME data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-industrial
-      # Upload Data
-      - name: Upload Data
-        uses: actions/upload-artifact@v4
-        with:
-          name: data
-          path: data/
       # Publish to GCS
       - name: Log into gcloud
         id: auth
