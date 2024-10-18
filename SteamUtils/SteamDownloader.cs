@@ -20,11 +20,12 @@ namespace SchemaService.SteamUtils
 {
     public static class SteamDownloaderFactory
     {
-        private class SteamDebugLogSetup
+        public static void AddSteamDownloader(this IServiceCollection collection, SteamConfiguration config)
         {
-            public SteamDebugLogSetup(ILoggerFactory logFactory)
+            var categoryCleaner = new Regex("^[0-9a-f]+/");
+            collection.AddSingleton(svc =>
             {
-                var categoryCleaner = new Regex("^[0-9a-f]+/");
+                var logFactory = svc.GetRequiredService<ILoggerFactory>();
                 DebugLog.ClearListeners();
                 DebugLog.AddListener((category, msg) =>
                 {
@@ -39,20 +40,10 @@ namespace SchemaService.SteamUtils
                     }
                 });
                 DebugLog.Enabled = true;
-            }
-        }
-
-        public static void AddSteamDownloader(this IServiceCollection collection, SteamConfiguration config)
-        {
-            collection.AddSingleton<SteamDebugLogSetup>();
-            collection.AddSingleton(config);
-            collection.AddSingleton<Func<SteamDownloader>>(svc =>
-            {
-                var log = svc.GetRequiredService<ILoggerFactory>();
-                var cfg = svc.GetRequiredService<SteamConfiguration>();
-                svc.GetRequiredService<SteamDebugLogSetup>();
-                return () => new SteamDownloader(log, cfg);
+                return new SteamClient(config);
             });
+            collection.AddSingleton<CdnPool>();
+            collection.AddSingleton<SteamDownloader>();
         }
     }
 
@@ -81,20 +72,20 @@ namespace SchemaService.SteamUtils
 
         private readonly ILogger<SteamDownloader> _log;
 
-        public bool IsLoggedIn => _loginDetails != null;
+        private bool IsLoggedIn => _loginDetails != null;
         public CdnPool CdnPool { get; }
 
-        public SteamDownloader(ILoggerFactory log, SteamConfiguration config)
+        public SteamDownloader(ILogger<SteamDownloader> log, SteamClient client, CdnPool cdnPool)
         {
-            _log = log.CreateLogger<SteamDownloader>();
-            _client = new SteamClient(config);
+            _log = log;
+            _client = client;
             _user = _client.GetHandler<SteamUser>();
             _apps = _client.GetHandler<SteamApps>();
             _cloud = _client.GetHandler<SteamCloud>();
             _content = _client.GetHandler<SteamContent>();
             _unifiedMessages = _client.GetHandler<SteamUnifiedMessages>();
             _publishedFiles = _unifiedMessages.CreateService<IPublishedFile>();
-            CdnPool = new CdnPool(log.CreateLogger<CdnPool>(), _client);
+            CdnPool = cdnPool;
 
 
             _callbacks = new CallbackPump(_client);
@@ -202,7 +193,7 @@ namespace SchemaService.SteamUtils
                     .WaitForAsync(x => x is ConnectedCallback || x is DisconnectedCallback);
 
                 if (connectResult is DisconnectedCallback)
-                    throw new Exception("Failed to connect to Steam");
+                    throw new Exception("Failed to connect to Steam.");
 
                 if (details == null)
                     _user.LogOnAnonymous();

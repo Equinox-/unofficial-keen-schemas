@@ -15,7 +15,9 @@ namespace SchemaBuilder
             using var host = new HostBuilder()
                 .ConfigureServices(svc =>
                 {
-                    svc.AddSteamDownloader(SteamConfiguration.Create(x => x.WithServerListProvider(new MemoryServerListProvider())));
+                    svc.AddSteamDownloader(SteamConfiguration.Create(x => x
+                        .WithProtocolTypes(ProtocolTypes.WebSocket)
+                        .WithServerListProvider(new MemoryServerListProvider())));
                     svc.AddSingleton<GameManager>();
                     svc.AddHostedService<GameManager>();
                     svc.AddSingleton<SchemaGenerator>();
