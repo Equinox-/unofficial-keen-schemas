@@ -25,6 +25,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigSchemas", "ConfigSche
 		Config\Schemas\space.xml = Config\Schemas\space.xml
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigData", "ConfigData", "{CCDFF5B9-03F2-415C-A218-8B05B2F38CCD}"
+	ProjectSection(SolutionItems) = preProject
+		Config\Data\medieval-industrial.xml = Config\Data\medieval-industrial.xml
+		Config\Data\medieval-vanilla.xml = Config\Data\medieval-vanilla.xml
+		Config\Data\space-vanilla.xml = Config\Data\space-vanilla.xml
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataExtractorMedieval", "DataExtractorMedieval\DataExtractorMedieval.csproj", "{1F185CD8-22E8-4C18-83ED-EF2C340FB067}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataExtractorSpace", "DataExtractorSpace\DataExtractorSpace.csproj", "{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "DataExtractorShared", "DataExtractorShared\DataExtractorShared.shproj", "{B609F0E1-1BAE-4B3F-9289-53D5B1C1F82C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -39,6 +52,14 @@ Global
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Debug|x64.Build.0 = Debug|x64
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Release|x64.ActiveCfg = Release|x64
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Release|x64.Build.0 = Release|x64
+		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Debug|x64.ActiveCfg = Debug|x64
+		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Debug|x64.Build.0 = Debug|x64
+		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Release|x64.ActiveCfg = Release|x64
+		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Release|x64.Build.0 = Release|x64
+		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Debug|x64.ActiveCfg = Debug|x64
+		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Debug|x64.Build.0 = Debug|x64
+		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Release|x64.ActiveCfg = Release|x64
+		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

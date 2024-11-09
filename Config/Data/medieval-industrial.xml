@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<DataConfig>
+    <Game>medieval-engineers</Game>
+    <SteamBranch>communityedition</SteamBranch>
+
+    <Mod>2297033591</Mod> <!-- Industrial Engineers Mod Pack -->
+    
+    <!-- Unclear why these mods fail to load... -->
+    <ExcludeMod>2771049405</ExcludeMod> <!-- Environment Performance Fixes -->
+    <ExcludeMod>2851752795</ExcludeMod> <!-- Buffer Beams -->
+    <ExcludeMod>3216752548</ExcludeMod> <!-- Deconstruction Workshop -->
+    <ExcludeMod>1900433144</ExcludeMod> <!-- Plank Wedges -->
+</DataConfig>
