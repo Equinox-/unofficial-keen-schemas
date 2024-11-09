@@ -68,8 +68,6 @@ jobs:
         run: SchemaBuilder/bin/Release/SchemaBuilder.exe data space-vanilla
       - name: Generate vanilla ME data
         run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-vanilla
-      - name: Generate industrial ME data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-industrial
       # Upload Data
       - name: Upload Data
         uses: actions/upload-artifact@v4

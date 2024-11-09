@@ -19,7 +19,7 @@ namespace SchemaBuilder.Schema
             }
 
             foreach (var element in schema.Elements.Values.OfType<XmlSchemaElement>())
-                ir.RootElements.Add(element.Name, CompileElement(element));
+                ir.RootElements.Add(element.Name, CompileElement(element, false));
 
             // Resolve generated ArrayOf* types.
             PostprocessArrayTypes(ir);
@@ -38,13 +38,13 @@ namespace SchemaBuilder.Schema
             var result = new ObjectTypeIr();
             AttachDocumentation(result, type);
 
-            IndexParticle(type.Particle);
+            IndexParticle(type.Particle, false);
             IndexAttributes(type.Attributes);
 
             switch (type.ContentModel?.Content)
             {
                 case XmlSchemaComplexContentExtension complexExt:
-                    IndexParticle(complexExt.Particle);
+                    IndexParticle(complexExt.Particle, false);
                     IndexAttributes(complexExt.Attributes);
                     result.BaseType = (CustomTypeReferenceIr)CompileTypeReference(complexExt.BaseTypeName);
                     break;
@@ -56,16 +56,16 @@ namespace SchemaBuilder.Schema
 
             return result;
 
-            void IndexParticle(XmlSchemaParticle particle)
+            void IndexParticle(XmlSchemaParticle particle, bool repeated)
             {
                 switch (particle)
                 {
                     case XmlSchemaElement element:
-                        result.Elements.Add(element.Name, CompileElement(element));
+                        result.Elements.Add(element.Name, CompileElement(element, repeated));
                         break;
                     case XmlSchemaGroupBase group:
                         foreach (var child in group.Items.OfType<XmlSchemaParticle>())
-                            IndexParticle(child);
+                            IndexParticle(child, repeated || group.MaxOccurs > 1);
                         break;
                 }
             }
@@ -77,7 +77,7 @@ namespace SchemaBuilder.Schema
             }
         }
 
-        private static PropertyIr CompileElement(XmlSchemaElement element)
+        private static PropertyIr CompileElement(XmlSchemaElement element, bool repeatedParent)
         {
             var itemType = CompileTypeReference(element.SchemaTypeName);
             var result = new PropertyIr
@@ -85,7 +85,7 @@ namespace SchemaBuilder.Schema
                 DefaultValue = element.DefaultValue
             };
             AttachDocumentation(result, element);
-            if (element.MaxOccurs > 1)
+            if (repeatedParent || element.MaxOccurs > 1)
                 result.Type = new ArrayTypeReferenceIr { Item = itemType };
             else if (element.MinOccurs == 0)
                 result.Type = new OptionalTypeReferenceIr { Item = itemType };

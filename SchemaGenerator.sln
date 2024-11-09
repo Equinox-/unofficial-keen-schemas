@@ -27,7 +27,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigSchemas", "ConfigSche
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigData", "ConfigData", "{CCDFF5B9-03F2-415C-A218-8B05B2F38CCD}"
 	ProjectSection(SolutionItems) = preProject
-		Config\Data\medieval-industrial.xml = Config\Data\medieval-industrial.xml
 		Config\Data\medieval-vanilla.xml = Config\Data\medieval-vanilla.xml
 		Config\Data\space-vanilla.xml = Config\Data\space-vanilla.xml
 	EndProjectSection
