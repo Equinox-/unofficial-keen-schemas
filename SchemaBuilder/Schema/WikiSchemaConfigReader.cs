@@ -137,8 +137,6 @@ namespace SchemaBuilder.Schema
                 foreach (var nested in root.SelectNodes(XPathTypeTable)!.OfType<XmlNode>().ToList())
                     nested.ParentNode!.RemoveChild(nested);
 
-                if (member.Name == "BasicProperties") Debugger.Break();
-
                 var docs = root.SelectSingleNode($".//*[contains(@class, '{ClassXmlDocs}')]");
                 if (docs != null && CleanDocs(docs))
                     member.Documentation = InlineCss(docs).InnerXml
@@ -174,6 +172,8 @@ namespace SchemaBuilder.Schema
                     {
                         if (CleanDocs(child))
                             anyValid = true;
+                        else if (child is XmlElement element && element.GetAttribute("class") == "w")
+                            ; // Don't remove whitespace spans.
                         else
                             node.RemoveChild(child);
                     }
