@@ -25,6 +25,11 @@ namespace SchemaBuilder.Schema
             _log = log;
         }
 
+        private const string AttrXmlType = "data-xml-type";
+        private const string AttrXmlElement = "data-xml-element";
+        private const string AttrXmlAttribute = "data-xml-attribute";
+        private const string ClassXmlDocs = "xml-doc-content";
+
         public async Task<SchemaConfig> Read(SchemaConfigFromWiki cfg)
         {
             var configOut = new SchemaConfig();
@@ -61,7 +66,7 @@ namespace SchemaBuilder.Schema
 
                 async Task ParseDocPage(string source, string type)
                 {
-                    _log.LogInformation($"Parsing page {source} for inclusion as {type}");
+                    var types = new HashSet<string>();
                     try
                     {
                         const string prop = "text";
@@ -74,26 +79,17 @@ namespace SchemaBuilder.Schema
                         }), default);
                         var xml = new XmlDocument();
                         xml.LoadXml(body.Value<JToken>("parse").Value<JToken>(prop).Value<string>("*")!);
-                        var elementDocs = xml.SelectNodes(".//*[@data-xml-element]")!;
-                        var attributeDocs = xml.SelectNodes(".//*[@data-xml-attribute]")!;
-                        if (elementDocs.Count == 0 && attributeDocs.Count == 0) return;
-
-                        var typeInfo = configOut.TypePatch(type, true);
-                        foreach (var element in elementDocs.OfType<XmlElement>())
+                        var typeTables = xml.SelectNodes($".//*[@{AttrXmlType}]")!;
+                        foreach (var typeTable in typeTables.OfType<XmlElement>())
                         {
-                            var tag = element.GetAttribute("data-xml-element");
-                            if (string.IsNullOrEmpty(tag)) continue;
-                            var elementInfo = typeInfo.ElementPatch(tag, true);
-                            BindDocs(elementInfo, element);
+                            var typeName = typeTable.GetAttribute(AttrXmlType);
+                            if (string.IsNullOrEmpty(typeName))
+                                typeName = type;
+                            types.Add(typeName);
+                            BindType(configOut.TypePatch(typeName, true), typeTable);
                         }
 
-                        foreach (var attribute in attributeDocs.OfType<XmlElement>())
-                        {
-                            var tag = attribute.GetAttribute("data-xml-attribute");
-                            if (string.IsNullOrEmpty(tag)) continue;
-                            var attributeInfo = typeInfo.AttributePatch(tag, true);
-                            BindDocs(attributeInfo, attribute);
-                        }
+                        _log.LogInformation($"Parsed page {source}, found types {string.Join(", ", types)}");
                     }
                     catch (Exception err)
                     {
@@ -103,9 +99,37 @@ namespace SchemaBuilder.Schema
             });
             return configOut;
 
+            void BindType(TypePatch typeCfg, XmlElement typeXml)
+            {
+                Walk(typeXml);
+                return;
+
+                void Walk(XmlElement xml)
+                {
+                    var elementName = xml.GetAttribute(AttrXmlElement);
+                    if (!string.IsNullOrEmpty(elementName))
+                    {
+                        var elementInfo = typeCfg.ElementPatch(elementName, true);
+                        BindDocs(elementInfo, xml);
+                        return;
+                    }
+
+                    var attributeName = xml.GetAttribute(AttrXmlAttribute);
+                    if (!string.IsNullOrEmpty(attributeName))
+                    {
+                        var attributeInfo = typeCfg.AttributePatch(attributeName, true);
+                        BindDocs(attributeInfo, xml);
+                        return;
+                    }
+
+                    foreach (var child in xml.OfType<XmlElement>())
+                        Walk(child);
+                }
+            }
+
             void BindDocs(MemberPatch member, XmlElement root)
             {
-                var content = root.SelectSingleNode(".//*[@class = 'xml-doc-content']")?.InnerXml;
+                var content = root.SelectSingleNode($".//*[@class = '{ClassXmlDocs}']")?.InnerXml;
                 if (string.IsNullOrEmpty(content)) return;
                 member.Documentation = content.Replace("href=\"/", $"href=\"{wikiRoot}");
             }
