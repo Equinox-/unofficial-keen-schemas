@@ -139,15 +139,27 @@ namespace SchemaBuilder.Schema
 
                 if (member.Name == "BasicProperties") Debugger.Break();
 
-                var docs = root.SelectSingleNode($".//*[@class = '{ClassXmlDocs}']");
-                if (docs != null && CleanEmptyText(docs))
-                    member.Documentation = docs.InnerXml
+                var docs = root.SelectSingleNode($".//*[contains(@class, '{ClassXmlDocs}')]");
+                if (docs != null && CleanDocs(docs))
+                    member.Documentation = InlineCss(docs).InnerXml
                         .Replace("href=\"/", $"href=\"{wikiRoot}")
                         .Trim();
 
                 return;
 
-                bool CleanEmptyText(XmlNode node)
+                XmlNode InlineCss(XmlNode node)
+                {
+                    foreach (var rule in cfg.CssInlines)
+                    foreach (var match in node.SelectNodes(rule.XPath)!.OfType<XmlElement>())
+                    {
+                        var style = match.GetAttribute("style");
+                        match.SetAttribute("style", style + rule.Style);
+                    }
+
+                    return node;
+                }
+
+                bool CleanDocs(XmlNode node)
                 {
                     if (node is XmlText text)
                     {
@@ -160,7 +172,7 @@ namespace SchemaBuilder.Schema
                     var anyValid = false;
                     foreach (var child in node.OfType<XmlNode>().ToList())
                     {
-                        if (CleanEmptyText(child))
+                        if (CleanDocs(child))
                             anyValid = true;
                         else
                             node.RemoveChild(child);

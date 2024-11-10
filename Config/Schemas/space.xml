@@ -10,6 +10,10 @@
     <FromWiki>
         <Api>https://spaceengineers.wiki.gg/api.php</Api>
         <Page Source="^Modding/Reference/SBC[A-Za-z/]*/(.*)$" Type="MyObjectBuilder_$1" RegexFromTemplate="Template:XMLDocWrapper" />
+        <!-- Figure out what needs to be inlined to get nice docs in Rider, VS, and VSCode.
+            <CssInline XPath=".//*[contains(@class, 'na')]" Style="color: #687822;" />
+            <CssInline Class="na" Style="color: #687822;" />
+        -->
     </FromWiki>
 
     <TypeAlias CSharpType="VRage.MyFixedPoint" XmlPrimitive="string" Pattern="^[0-9]{0,13}(\.[0-9]{0,6})?$" />
@@ -34,22 +38,22 @@
             <Documentation>
                 The type and subtype combined make up a unique identifier for this definition.
                 If an ID already exists then the game will override it or in case of &lt;Environment&gt; it will merge elements.
-                
+
                 &lt;BlockCategories&gt; is the exception where the subtype does not matter, it instead uses the &lt;Name&gt; element.
             </Documentation>
         </Member>
         <Member Name="Icon">
             <Documentation>
                 Icon(s) for the definition which may or may not be used depending on the definition type.
-                
+
                 Multiple of this element can be used which will stack the icons on top of eachother (last is rendered on top).
-                
+
                 Relative path in the mod folder. Falls back to searching in game folder if not found in current mod.
                 Does not work to find assets in other mods unless you go back a level (..\) and into a different mod by its workshopId.
             </Documentation>
         </Member>
     </Type>
-    
+
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition">
         <Member Name="DisplayName" Optional="false">
             <Documentation>
@@ -67,8 +71,8 @@
                 A comma-separated list of control IDs which are referenced in Description by {number}.
                 These then get replaced by the actual bind that the viewer has for those controls.
                 Example:
-                  Description: Press {0} to fire, {1} to change color, {2} to interact.
-                  DescriptionArgs: PRIMARY_TOOL_ACTION,CUBE_COLOR_CHANGE,USE
+                Description: Press {0} to fire, {1} to change color, {2} to interact.
+                DescriptionArgs: PRIMARY_TOOL_ACTION,CUBE_COLOR_CHANGE,USE
             </Documentation>
         </Member>
         <Member Name="BlockPairName">
@@ -122,8 +126,8 @@
                 Has multiple uses in game code:
                 - Damage from other thrusters: if it's &lt;= 0.25 then the block doesn't get damaged by SmallGrid thrusters (LargeGrid ones damage everything).
                 - For volumetric explosions: this multiplied by GeneralDamageMultiplier is used to divide block's integrity by it and then checks
-                    against some damage value (unclear if the raw one) before deciding if it gets deleted.
-                    Also this is before DamageMultiplierExplosion is applied to the damage (which considering its default value makes it important).
+                against some damage value (unclear if the raw one) before deciding if it gets deleted.
+                Also this is before DamageMultiplierExplosion is applied to the damage (which considering its default value makes it important).
                 - For armor deformations: gets used as a multiplier of sorts.
                 Default: 1.0
             </Documentation>
@@ -164,7 +168,8 @@
                 - Placing something else on this block:
                 --- false would use a mix of collider+model to determine if you're aiming at it.
                 --- true uses only the visual model.
-                Downside of 'true' is that you'll have a harder time aiming at some models (e.g. conveyor tube being hollow will require you to aim at the frame).
+                Downside of 'true' is that you'll have a harder time aiming at some models (e.g. conveyor tube being hollow will require you to aim at the
+                frame).
                 Default: false
             </Documentation>
         </Member>
@@ -193,10 +198,10 @@
         <Member Name="BlockTopology">
             <Documentation>
                 Cube makes it require the &lt;CubeDefinition&gt; which defines multiple models to make up a deformable block.
-                  This also removes the need for a &lt;Model&gt; element but it can still be used to have both.
-                
-                TriangleMesh is the one most blocks use, requires &lt;Model&gt; element. 
-                
+                This also removes the need for a &lt;Model&gt; element but it can still be used to have both.
+
+                TriangleMesh is the one most blocks use, requires &lt;Model&gt; element.
+
                 Default: Cube therefore it is not recommended to omit it.
             </Documentation>
         </Member>
@@ -224,12 +229,12 @@
             <Documentation>
                 NOTE: This impacts performance, recommended to use the same values that the vanilla type uses (if present).
                 Defines how fast the block updates, only available on certain block types.
-                
+
                 The &lt;unsignedInt&gt; elements in order are the tiers:
                 1. Normal - local player is nearby or grid streamed to at least one player.
                 2. Tier1 - local player not nearby and grid is not streamed to anyone.
                 3. Tier2 - same as Tier1 but 10 minutes passed since it was set to Tier1.
-                
+
                 Defaults to empty.
             </Documentation>
         </Member>
@@ -243,11 +248,12 @@
         <Member Name="WheelPlacementCollider">
             <Documentation>
                 Only used by blocks that are attachable to suspension blocks.
-                Because wheel colliders are spheres this feature provides a fake cylinder collider only used for building around the wheel as well as detecting if the wheel can fit.
+                Because wheel colliders are spheres this feature provides a fake cylinder collider only used for building around the wheel as well as detecting
+                if the wheel can fit.
             </Documentation>
         </Member>
     </Type>
-    
+
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition.CubeBlockComponent">
         <Member Name="DeconstructId">
             <Documentation>
@@ -256,7 +262,7 @@
             </Documentation>
         </Member>
     </Type>
-    
+
     <Type Name="VRage.Game.MyObjectBuilder_PhysicalModelDefinition">
         <Member Name="Model">
             <Documentation>
@@ -278,7 +284,7 @@
             </Documentation>
         </Member>
     </Type>
-    
+
     <Type Name="VRage.Game.MyObjectBuilder_CubeBlockDefinition.CriticalPart">
         <Member Name="Index">
             <Documentation>
@@ -287,7 +293,7 @@
             </Documentation>
         </Member>
     </Type>
-    
+
     <Type Name="VRage.Game.BlueprintClassEntry">
         <Member Name="Enabled">
             <Documentation>
@@ -295,7 +301,7 @@
             </Documentation>
         </Member>
     </Type>
-    
+
     <!-- for easy copy
     
     <Type Name="TYPE">

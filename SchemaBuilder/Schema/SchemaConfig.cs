@@ -310,6 +310,25 @@ namespace SchemaBuilder.Schema
         [XmlElement("Page")]
         public List<FromWikiPage> Pages = new List<FromWikiPage>();
 
+        [XmlElement("CssInline")]
+        public List<CssInline> CssInlines = new List<CssInline>();
+
+        public class CssInline
+        {
+            [XmlAttribute]
+            public string XPath;
+
+            [XmlAttribute]
+            public string Class
+            {
+                get => default;
+                set => XPath = $".//*[contains(@class, '{value}')]";
+            }
+
+            [XmlAttribute]
+            public string Style;
+        }
+
         public class FromWikiPage
         {
             [XmlAttribute]
