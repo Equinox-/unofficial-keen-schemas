@@ -26,6 +26,7 @@ namespace SchemaBuilder.Schema
         }
 
         private const string AttrXmlType = "data-xml-type";
+        private static readonly string XPathTypeTable = $".//*[@{AttrXmlType}]";
         private const string AttrXmlElement = "data-xml-element";
         private const string AttrXmlAttribute = "data-xml-attribute";
         private const string ClassXmlDocs = "xml-doc-content";
@@ -79,7 +80,7 @@ namespace SchemaBuilder.Schema
                         }), default);
                         var xml = new XmlDocument();
                         xml.LoadXml(body.Value<JToken>("parse").Value<JToken>(prop).Value<string>("*")!);
-                        var typeTables = xml.SelectNodes($".//*[@{AttrXmlType}]")!;
+                        var typeTables = xml.SelectNodes(XPathTypeTable)!;
                         foreach (var typeTable in typeTables.OfType<XmlElement>())
                         {
                             var typeName = typeTable.GetAttribute(AttrXmlType);
@@ -101,6 +102,7 @@ namespace SchemaBuilder.Schema
 
             void BindType(TypePatch typeCfg, XmlElement typeXml)
             {
+                if (typeCfg.Name == "MyObjectBuilder_AmmoDefinition") Debugger.Break();
                 Walk(typeXml);
                 return;
 
@@ -129,9 +131,43 @@ namespace SchemaBuilder.Schema
 
             void BindDocs(MemberPatch member, XmlElement root)
             {
-                var content = root.SelectSingleNode($".//*[@class = '{ClassXmlDocs}']")?.InnerXml;
-                if (string.IsNullOrEmpty(content)) return;
-                member.Documentation = content.Replace("href=\"/", $"href=\"{wikiRoot}");
+                root = (XmlElement)root.CloneNode(true);
+
+                // Remove nested type tables, they are handled intrinsically in the schema.
+                foreach (var nested in root.SelectNodes(XPathTypeTable)!.OfType<XmlNode>().ToList())
+                    nested.ParentNode!.RemoveChild(nested);
+
+                if (member.Name == "BasicProperties") Debugger.Break();
+
+                var docs = root.SelectSingleNode($".//*[@class = '{ClassXmlDocs}']");
+                if (docs != null && CleanEmptyText(docs))
+                    member.Documentation = docs.InnerXml
+                        .Replace("href=\"/", $"href=\"{wikiRoot}")
+                        .Trim();
+
+                return;
+
+                bool CleanEmptyText(XmlNode node)
+                {
+                    if (node is XmlText text)
+                    {
+                        if (string.IsNullOrWhiteSpace(text.Value)) return false;
+                        var str = text.Value.Trim();
+                        return !str.Equals("This type hosts other elements:", StringComparison.OrdinalIgnoreCase) &&
+                               !str.Equals("Unused or obsolete elements", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    var anyValid = false;
+                    foreach (var child in node.OfType<XmlNode>().ToList())
+                    {
+                        if (CleanEmptyText(child))
+                            anyValid = true;
+                        else
+                            node.RemoveChild(child);
+                    }
+
+                    return anyValid;
+                }
             }
         }
     }
