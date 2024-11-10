@@ -6,8 +6,8 @@
 - Determine what schema you want to use from the [Schemas](#schemas) section
 - Add the URI of the schema file (ex `<Definitions xsi:noNamespaceSchemaLocation="SCHEMA_URI" ...`)
     - Determine which schema file to use by matching against what XSD Version your editor supports
-    - If your editor **does** support https:// schemas right click the XSD link, pick "Copy Link"
-    - If your editor **doesn't** support https:// schemas right click the XSD link, pick "Save Link As", save the schema to disk, and construct a file
+    - If your editor **does** support https:// schemas right-click the XSD link, pick "Copy Link"
+    - If your editor **doesn't** support https:// schemas right-click the XSD link, pick "Save Link As", save the schema to disk, and construct a file
       URI pointing to the schema (ex `file:///C:/Users/username/Downloads/medieval-vanilla.xsd`)
     - This URI, `file:///C:/.../medieval-vanila.xsd` or `https://storage.googleapis.com/.../medieval-vanilla.xsd`, is the SCHEMA_URI.
 
@@ -21,9 +21,23 @@
 
 ## Editors
 
-| Editor             | Requirements                                                                           | XSD Version | https:// Schemas |
-|--------------------|----------------------------------------------------------------------------------------|-------------|------------------|
-| Visual Studio Code | [XML Extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) | XSD 1.0     | ✅                |
-| Rider & IntelliJ   | None                                                                                   | XSD 1.0     | ✅                |
-| Visual Studio      | None                                                                                   | XSD 1.0     | ❌                |
+| Editor             | Requirements                                  | XSD Version | https:// Schemas |
+|--------------------|-----------------------------------------------|-------------|------------------|
+| Visual Studio Code | See [Instructions](#visual-studio-code-setup) | XSD 1.0     | ✅                |
+| Rider & IntelliJ   | None                                          | XSD 1.0     | ✅                |
+| Visual Studio      | None                                          | XSD 1.0     | ❌                |
 
+### Visual Studio Code Setup
+- Install the [XML Extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml)
+- Install a patched version of the language service.
+  - Navigate to `C:\Users\YOUR_NAME\.vscode\extensions\`, find the folder starting with `redhat.vscode-xml-` and open `server`.
+  - Determine the installed version of lemminx, such as `0.28.0` for a file named `org.eclipse.lemminx-0.28.0-uber.jar`.
+  - If the version is greater than (but not equal to) `0.28.0` the patched language service is already installed.
+  - Otherwise, navigate to [Eclipse Foundation Lemminx](https://download.eclipse.org/lemminx/snapshots/) and download `org.eclipse.lemminx-uber.jar`.
+  - Shut down VS Code if it's running.
+  - Replace `org.eclipse.lemminx-***-uber.jar` with the downloaded `org.eclipse.lemminx-uber.jar`.
+- Open a `.sbc` file that has been [set up](#setup).
+- Open the command palette, (Ctrl-Shift-P by default) and run "Revalidate all opened XML files". Remember this command,
+  as it is also used to update the schema files from the above links.
+- Check that the setup works correctly by hovering the `<TypeId>` element or the "Type" attribute of `<Id Type="..." />` element.
+  If everything is working, documentation should show up when hovering.
