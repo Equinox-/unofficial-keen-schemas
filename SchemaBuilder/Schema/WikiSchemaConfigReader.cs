@@ -151,7 +151,7 @@ namespace SchemaBuilder.Schema
                 {
                     if (node is XmlText text)
                     {
-                        if (string.IsNullOrWhiteSpace(text.Value)) return false;
+                        if (string.IsNullOrEmpty(text.Value)) return false;
                         var str = text.Value.Trim();
                         return !str.Equals("This type hosts other elements:", StringComparison.OrdinalIgnoreCase) &&
                                !str.Equals("Unused or obsolete elements", StringComparison.OrdinalIgnoreCase);
