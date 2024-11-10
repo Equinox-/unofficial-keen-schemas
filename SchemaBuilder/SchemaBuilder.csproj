@@ -41,11 +41,13 @@
         <Compile Include="Schema\SchemaIrDocumentation.cs" />
         <Compile Include="Schema\SchemaIrToXsd.cs" />
         <Compile Include="Schema\SerializationProxies.cs" />
+        <Compile Include="Schema\WikiSchemaConfigReader.cs" />
         <Compile Include="Schema\XmlInfo.cs" />
         <Compile Include="Schema\XmlNameConflictResolver.cs" />
         <Compile Include="Schema\XmlReflection.cs" />
         <Compile Include="TaskAvoidance.cs" />
         <Compile Include="UnionFind.cs" />
+        <Compile Include="WikiClientFactory.cs" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\SteamUtils\SteamUtils.csproj">

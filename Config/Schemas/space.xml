@@ -7,6 +7,11 @@
 
     <AllOptional>true</AllOptional>
 
+    <FromWiki>
+        <Api>https://spaceengineers.wiki.gg/api.php</Api>
+        <Page Source="^Modding/Reference/SBC[A-Za-z/]*/(.*)$" Type="MyObjectBuilder_$1" RegexFromTemplate="Template:XMLElementDoc" />
+    </FromWiki>
+
     <TypeAlias CSharpType="VRage.MyFixedPoint" XmlPrimitive="string" Pattern="^[0-9]{0,13}(\.[0-9]{0,6})?$" />
 
     <!-- Suppress types that bring in the entire entity serialization tree.  It makes the schema way larger and is generally not useful. -->

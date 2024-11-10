@@ -26,6 +26,8 @@ namespace SchemaBuilder
                     svc.AddSingleton<DataExtractor>();
                     svc.AddSingleton<DocReader>();
                     svc.AddSingleton<WikiWriter>();
+                    svc.AddSingleton<WikiClientFactory>();
+                    svc.AddSingleton<WikiSchemaConfigReader>();
                 })
                 .Build();
             await host.StartAsync();

@@ -19,12 +19,14 @@ namespace SchemaBuilder.Schema
         private readonly ILogger<SchemaGenerator> _log;
         private readonly GameManager _games;
         private readonly DocReader _docs;
+        private readonly WikiSchemaConfigReader _wikiSchemaConfig;
 
-        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log, DocReader docs)
+        public SchemaGenerator(GameManager games, ILogger<SchemaGenerator> log, DocReader docs, WikiSchemaConfigReader wikiSchemaConfig)
         {
             _games = games;
             _log = log;
             _docs = docs;
+            _wikiSchemaConfig = wikiSchemaConfig;
         }
 
         public async Task Generate(string name)
@@ -32,6 +34,8 @@ namespace SchemaBuilder.Schema
             _log.LogInformation("Generating schema {Name}", name);
 
             var config = SchemaConfig.Read("Config/Schemas", name);
+            foreach (var wikiCfg in config.FromWiki)
+                config.InheritFrom(await _wikiSchemaConfig.Read(wikiCfg));
 
             var gameInfo = GameInfo.Games[config.Game];
             var gameInstall = await _games.RestoreGame(config.Game, config.SteamBranch);

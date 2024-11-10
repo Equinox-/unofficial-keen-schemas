@@ -9,10 +9,11 @@ namespace SchemaBuilder.Schema
     [XmlRoot("SchemaConfig")]
     public class SchemaConfig : ConfigBase<SchemaConfig>
     {
-        private readonly Dictionary<string, TypePatch> _types = new Dictionary<string, TypePatch>();
-        private readonly Dictionary<string, TypeAlias> _typeAliases = new Dictionary<string, TypeAlias>();
+        [XmlIgnore]
+        public Dictionary<string, TypePatch> Types { get; } = new Dictionary<string, TypePatch>();
 
-        public IReadOnlyDictionary<string, TypeAlias> TypeAliases => _typeAliases;
+        [XmlIgnore]
+        public Dictionary<string, TypeAlias> TypeAliases { get; } = new Dictionary<string, TypeAlias>();
 
         /// <summary>
         /// Should all possible elements be converted to optional.
@@ -27,31 +28,35 @@ namespace SchemaBuilder.Schema
         [XmlElement("SuppressedType")]
         public HashSet<string> SuppressedTypes = new HashSet<string>();
 
+        [XmlElement("FromWiki")]
+        public List<SchemaConfigFromWiki> FromWiki = new List<SchemaConfigFromWiki>();
+
         [XmlElement("Type")]
         public TypePatch[] ForXmlTypes
         {
-            get => _types.Values.ToArray();
+            get => Types.Values.ToArray();
             set
             {
-                _types.Clear();
+                Types.Clear();
                 if (value == null) return;
                 foreach (var type in value)
-                    _types.Add(type.Name, type);
+                    Types.Add(type.Name, type);
             }
         }
 
         [XmlElement("TypeAlias")]
         public TypeAlias[] ForXmlTypeAliases
         {
-            get => _typeAliases.Values.ToArray();
+            get => TypeAliases.Values.ToArray();
             set
             {
-                _typeAliases.Clear();
+                TypeAliases.Clear();
                 if (value == null) return;
                 foreach (var alias in value)
-                    _typeAliases.Add(alias.CSharpType, alias);
+                    TypeAliases.Add(alias.CSharpType, alias);
             }
         }
+
         public override void InheritFrom(SchemaConfig other)
         {
             base.InheritFrom(other);
@@ -59,14 +64,24 @@ namespace SchemaBuilder.Schema
             foreach (var suppressed in other.SuppressedTypes)
                 SuppressedTypes.Add(suppressed);
 
-            _types.OrInherit(other._types);
+            Types.OrInherit(other.Types);
 
-            foreach (var alias in other._typeAliases)
-                if (!_typeAliases.ContainsKey(alias.Key))
-                    _typeAliases.Add(alias.Key, alias.Value);
+            foreach (var alias in other.TypeAliases)
+                if (!TypeAliases.ContainsKey(alias.Key))
+                    TypeAliases.Add(alias.Key, alias.Value);
+
+            if (other.FromWiki.Count > 0)
+                FromWiki.InsertRange(0, other.FromWiki);
         }
 
-        public TypePatch TypePatch(string name) => _types.TryGetValue(name, out var patch) ? patch : null;
+        public TypePatch TypePatch(string name, bool create = false)
+        {
+            if (Types.TryGetValue(name, out var patch)) return patch;
+            if (!create) return null;
+            patch = new TypePatch { Name = name };
+            Types.Add(name, patch);
+            return patch;
+        }
     }
 
 
@@ -168,17 +183,25 @@ namespace SchemaBuilder.Schema
             }
         }
 
-        public MemberPatch AttributePatch(string name) => MemberPatch("attribute:", name);
+        public MemberPatch AttributePatch(string name, bool create = false) => MemberPatch("attribute:", name, create);
 
-        public MemberPatch EnumPatch(string name) => MemberPatch("enum:", name);
+        public MemberPatch EnumPatch(string name, bool create = false) => MemberPatch("enum:", name, create);
 
-        public MemberPatch ElementPatch(string name) => MemberPatch("element:", name);
+        public MemberPatch ElementPatch(string name, bool create = false)
+        {
+            return MemberPatch("element:", name, create);
+        }
 
-        private MemberPatch MemberPatch(string prefix, string name)
+        private MemberPatch MemberPatch(string prefix, string name, bool create)
         {
             if (_members.TryGetValue(prefix + name, out var patch))
                 return patch;
-            return _members.TryGetValue(name, out patch) ? patch : null;
+            if (_members.TryGetValue(name, out patch))
+                return patch;
+            if (!create) return null;
+            patch = new MemberPatch { Name = prefix + name };
+            _members.Add(patch.Name, patch);
+            return patch;
         }
 
         public void InheritFrom(TypePatch other)
@@ -276,6 +299,27 @@ namespace SchemaBuilder.Schema
 
             [XmlEnum("float")]
             Float,
+        }
+    }
+
+    public class SchemaConfigFromWiki
+    {
+        [XmlElement]
+        public string Api;
+
+        [XmlElement("Page")]
+        public List<FromWikiPage> Pages = new List<FromWikiPage>();
+
+        public class FromWikiPage
+        {
+            [XmlAttribute]
+            public string Source;
+
+            [XmlAttribute]
+            public string Type;
+
+            [XmlAttribute]
+            public string RegexFromTemplate;
         }
     }
 }
