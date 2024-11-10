@@ -78,7 +78,7 @@ namespace SchemaBuilder.Schema
                             ["page"] = source,
                             ["prop"] = prop
                         }), default);
-                        var xml = new XmlDocument();
+                        var xml = new XmlDocument { PreserveWhitespace = true };
                         xml.LoadXml(body.Value<JToken>("parse").Value<JToken>(prop).Value<string>("*")!);
                         var typeTables = xml.SelectNodes(XPathTypeTable)!;
                         foreach (var typeTable in typeTables.OfType<XmlElement>())
@@ -102,7 +102,6 @@ namespace SchemaBuilder.Schema
 
             void BindType(TypePatch typeCfg, XmlElement typeXml)
             {
-                if (typeCfg.Name == "MyObjectBuilder_AmmoDefinition") Debugger.Break();
                 Walk(typeXml);
                 return;
 
@@ -138,7 +137,7 @@ namespace SchemaBuilder.Schema
                     nested.ParentNode!.RemoveChild(nested);
 
                 var docs = root.SelectSingleNode($".//*[contains(@class, '{ClassXmlDocs}')]");
-                if (docs != null && CleanDocs(docs))
+                if (docs != null && CleanDocs(docs) == CleanWhitespaceResult.HasContent)
                     member.Documentation = InlineCss(docs).InnerXml
                         .Replace("href=\"/", $"href=\"{wikiRoot}")
                         .Trim();
@@ -157,30 +156,51 @@ namespace SchemaBuilder.Schema
                     return node;
                 }
 
-                bool CleanDocs(XmlNode node)
+                CleanWhitespaceResult CleanDocs(XmlNode node)
                 {
-                    if (node is XmlText text)
+                    switch (node)
                     {
-                        if (string.IsNullOrEmpty(text.Value)) return false;
-                        var str = text.Value.Trim();
-                        return !str.Equals("This type hosts other elements:", StringComparison.OrdinalIgnoreCase) &&
-                               !str.Equals("Unused or obsolete elements", StringComparison.OrdinalIgnoreCase);
+                        case XmlText text when string.IsNullOrEmpty(text.Value):
+                            return CleanWhitespaceResult.None;
+                        case XmlText text:
+                        {
+                            var str = text.Value.Trim();
+                            if (str == "")
+                                return CleanWhitespaceResult.HasSignificantWhitespace;
+                            if (str.Equals("This type hosts other elements:", StringComparison.OrdinalIgnoreCase))
+                                return CleanWhitespaceResult.None;
+                            // ReSharper disable once ConvertIfStatementToReturnStatement
+                            if (str.Equals("Unused or obsolete elements", StringComparison.OrdinalIgnoreCase))
+                                return CleanWhitespaceResult.None;
+                            return CleanWhitespaceResult.HasContent;
+                        }
+                        case XmlWhitespace ws when ws.Value.Length > 0:
+                        case XmlSignificantWhitespace sws when sws.Value.Length > 0:
+                            return CleanWhitespaceResult.HasSignificantWhitespace;
                     }
 
-                    var anyValid = false;
+                    var mostSignificant = CleanWhitespaceResult.None;
                     foreach (var child in node.OfType<XmlNode>().ToList())
                     {
-                        if (CleanDocs(child))
-                            anyValid = true;
-                        else if (child is XmlElement element && element.GetAttribute("class") == "w")
-                            ; // Don't remove whitespace spans.
-                        else
-                            node.RemoveChild(child);
+                        var childResult = CleanDocs(child);
+                        if (childResult == CleanWhitespaceResult.None) node.RemoveChild(child);
+                        if (childResult > mostSignificant) mostSignificant = childResult;
                     }
 
-                    return anyValid;
+                    if (mostSignificant == CleanWhitespaceResult.None && node is XmlElement element &&
+                        (element.Name == "p" || element.Name == "br" || element.GetAttribute("class") == "w"))
+                        mostSignificant = CleanWhitespaceResult.HasSignificantWhitespace;
+
+                    return mostSignificant;
                 }
             }
+        }
+
+        enum CleanWhitespaceResult
+        {
+            None,
+            HasSignificantWhitespace,
+            HasContent,
         }
     }
 }
