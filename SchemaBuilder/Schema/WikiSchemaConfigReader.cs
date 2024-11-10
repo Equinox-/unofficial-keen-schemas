@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -73,8 +74,8 @@ namespace SchemaBuilder.Schema
                         }), default);
                         var xml = new XmlDocument();
                         xml.LoadXml(body.Value<JToken>("parse").Value<JToken>(prop).Value<string>("*")!);
-                        var elementDocs = xml.SelectNodes("//*[@data-xml-element]")!;
-                        var attributeDocs = xml.SelectNodes("//*[@data-xml-attribute]")!;
+                        var elementDocs = xml.SelectNodes(".//*[@data-xml-element]")!;
+                        var attributeDocs = xml.SelectNodes(".//*[@data-xml-attribute]")!;
                         if (elementDocs.Count == 0 && attributeDocs.Count == 0) return;
 
                         var typeInfo = configOut.TypePatch(type, true);
@@ -104,7 +105,7 @@ namespace SchemaBuilder.Schema
 
             void BindDocs(MemberPatch member, XmlElement root)
             {
-                var content = root.SelectSingleNode("//*[@class = 'xml-doc-content']")?.InnerXml;
+                var content = root.SelectSingleNode(".//*[@class = 'xml-doc-content']")?.InnerXml;
                 if (string.IsNullOrEmpty(content)) return;
                 member.Documentation = content.Replace("href=\"/", $"href=\"{wikiRoot}");
             }
