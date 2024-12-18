@@ -5,8 +5,10 @@ using System.Text;
 using System.Threading;
 using DataExtractorShared;
 using Havok;
+using Medieval;
 using Sandbox.Definitions;
 using Sandbox.Game.Localization;
+using VRage.Engine;
 using VRage.FileSystem;
 using VRage.Game;
 using VRage.Input;
@@ -36,6 +38,12 @@ namespace DataExtractorMedieval
                 MyLanguage.Init();
                 MyRenderProxy.Initialize(new MyNullRender());
                 MyLog.Default.Init("temp/data-extractor-medieval.log", new StringBuilder());
+                // ReSharper disable once ObjectCreationAsStatement
+                new VRageCore(new AppInformation(
+                    "Medieval Engineers Data Extractor",
+                    MyMedievalGame.ME_VERSION,
+                    versionString: MyMedievalGame.VersionString
+                ), true);
                 Workers.Init(new WorkerConfigurationFactory()
                     .AddGroup(new WorkerConfigurationFactory.Group
                     {
