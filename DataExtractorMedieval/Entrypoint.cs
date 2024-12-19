@@ -38,12 +38,12 @@ namespace DataExtractorMedieval
                 MyLanguage.Init();
                 MyRenderProxy.Initialize(new MyNullRender());
                 MyLog.Default.Init("temp/data-extractor-medieval.log", new StringBuilder());
-                // ReSharper disable once ObjectCreationAsStatement
-                new VRageCore(new AppInformation(
+                var core = new VRageCore(new AppInformation(
                     "Medieval Engineers Data Extractor",
                     MyMedievalGame.ME_VERSION,
                     versionString: MyMedievalGame.VersionString
                 ), true);
+                core.Init(new CoreConfiguration());
                 Workers.Init(new WorkerConfigurationFactory()
                     .AddGroup(new WorkerConfigurationFactory.Group
                     {
