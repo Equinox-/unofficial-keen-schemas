@@ -29,13 +29,6 @@
 
 ### Visual Studio Code Setup
 - Install the [XML Extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml)
-- Install a patched version of the language service.
-  - Navigate to `C:\Users\YOUR_NAME\.vscode\extensions\`, find the folder starting with `redhat.vscode-xml-` and open `server`.
-  - Determine the installed version of lemminx, such as `0.28.0` for a file named `org.eclipse.lemminx-0.28.0-uber.jar`.
-  - If the version is greater than (but not equal to) `0.28.0` the patched language service is already installed.
-  - Otherwise, navigate to [Eclipse Foundation Lemminx](https://download.eclipse.org/lemminx/snapshots/) and download `org.eclipse.lemminx-uber.jar`.
-  - Shut down VS Code if it's running.
-  - Replace `org.eclipse.lemminx-***-uber.jar` with the downloaded `org.eclipse.lemminx-uber.jar`.
 - Open a `.sbc` file that has been [set up](#setup).
 - Open the command palette, (Ctrl-Shift-P by default) and run "Revalidate all opened XML files". Remember this command,
   as it is also used to update the schema files from the above links.
