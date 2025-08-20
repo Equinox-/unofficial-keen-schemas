@@ -21,9 +21,6 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="Config.cs" />
-        <Compile Include="Data\DataConfig.cs" />
-        <Compile Include="Data\DataExtractor.cs" />
-        <Compile Include="Data\WikiWriter.cs" />
         <Compile Include="GameInfo.cs" />
         <Compile Include="GameManager.cs" />
         <Compile Include="HostBuilder.cs" />

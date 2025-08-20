@@ -17,25 +17,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Config", "Config", "{F51A3B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigSchemas", "ConfigSchemas", "{766159DB-A9D6-4781-82AB-1DF46B5CCB8D}"
 	ProjectSection(SolutionItems) = preProject
-		Config\Schemas\medieval-modded.xml = Config\Schemas\medieval-modded.xml
 		Config\Schemas\medieval-vanilla.xml = Config\Schemas\medieval-vanilla.xml
 		Config\Schemas\medieval.xml = Config\Schemas\medieval.xml
 		Config\Schemas\shared.xml = Config\Schemas\shared.xml
 		Config\Schemas\space-vanilla.xml = Config\Schemas\space-vanilla.xml
 		Config\Schemas\space.xml = Config\Schemas\space.xml
+		Config\Schemas\medieval-modded.xml = Config\Schemas\medieval-modded.xml
 	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ConfigData", "ConfigData", "{CCDFF5B9-03F2-415C-A218-8B05B2F38CCD}"
-	ProjectSection(SolutionItems) = preProject
-		Config\Data\medieval-vanilla.xml = Config\Data\medieval-vanilla.xml
-		Config\Data\space-vanilla.xml = Config\Data\space-vanilla.xml
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataExtractorMedieval", "DataExtractorMedieval\DataExtractorMedieval.csproj", "{1F185CD8-22E8-4C18-83ED-EF2C340FB067}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataExtractorSpace", "DataExtractorSpace\DataExtractorSpace.csproj", "{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}"
-EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "DataExtractorShared", "DataExtractorShared\DataExtractorShared.shproj", "{B609F0E1-1BAE-4B3F-9289-53D5B1C1F82C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,21 +39,8 @@ Global
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Debug|x64.Build.0 = Debug|x64
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Release|x64.ActiveCfg = Release|x64
 		{CFFE0868-691A-4E2E-AA5E-7BC6A898AF80}.Release|x64.Build.0 = Release|x64
-		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Debug|x64.ActiveCfg = Debug|x64
-		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Debug|x64.Build.0 = Debug|x64
-		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Release|x64.ActiveCfg = Release|x64
-		{1F185CD8-22E8-4C18-83ED-EF2C340FB067}.Release|x64.Build.0 = Release|x64
-		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Debug|x64.ActiveCfg = Debug|x64
-		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Debug|x64.Build.0 = Debug|x64
-		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Release|x64.ActiveCfg = Release|x64
-		{008CB507-BDA8-45E0-9CB7-50F3994FB9A5}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		DataExtractorShared\DataExtractorShared.projitems*{008cb507-bda8-45e0-9cb7-50f3994fb9a5}*SharedItemsImports = 4
-		DataExtractorShared\DataExtractorShared.projitems*{1f185cd8-22e8-4c18-83ed-ef2c340fb067}*SharedItemsImports = 4
-		DataExtractorShared\DataExtractorShared.projitems*{b609f0e1-1bae-4b3f-9289-53d5b1c1f82c}*SharedItemsImports = 13
 	EndGlobalSection
 EndGlobal

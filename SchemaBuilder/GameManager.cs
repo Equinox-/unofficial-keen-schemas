@@ -25,12 +25,12 @@ namespace SchemaBuilder
             return false;
         }
 
-        private const bool Skip = false;
-
         private readonly SteamDownloader _steamInternal;
         private readonly ILogger<GameManager> _log;
 
         private readonly string _rootDir;
+
+        public bool OfflineMode { get; } = false;
 
         public GameManager(SteamDownloader steam, ILogger<GameManager> log)
         {
@@ -47,7 +47,7 @@ namespace SchemaBuilder
             var info = GameInfo.Games[game];
             branch ??= info.SteamBranch;
             var installDir = Path.Combine(_rootDir, "game", game.ToString(), branch);
-            if (!Skip)
+            if (!OfflineMode)
                 await RunWithRetry(steam => steam.InstallAppAsync(info.SteamDedicatedAppId, info.SteamDedicatedDepotId, branch, installDir,
                     path => path.StartsWith(BinariesDir) || IsDataFile(path), game.ToString()));
 
@@ -118,7 +118,7 @@ namespace SchemaBuilder
         {
             var info = GameInfo.Games[game];
             var installDir = Path.Combine(_rootDir, "game", game + "-workshop", details.publishedfileid.ToString());
-            if (!Skip)
+            if (!OfflineMode)
                 await RunWithRetry(steam => steam.InstallModAsync(info.SteamGameAppId, details.publishedfileid, installDir,
                     path => path.IndexOf("Data/Scripts", StringComparison.OrdinalIgnoreCase) >= 0
                             || path.IndexOf("Data\\Scripts", StringComparison.OrdinalIgnoreCase) >= 0
@@ -145,7 +145,11 @@ namespace SchemaBuilder
             }
         }
 
-        public Task StartAsync(CancellationToken cancellationToken) => RunWithRetry(steam => steam.LoginAsync());
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            if (OfflineMode) return Task.CompletedTask;
+            return RunWithRetry(steam => steam.LoginAsync());
+        }
 
         public Task StopAsync(CancellationToken cancellationToken) => RunWithRetry(async steam =>
         {

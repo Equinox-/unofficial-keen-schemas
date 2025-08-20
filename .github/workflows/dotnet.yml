@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-2025
     permissions:
       contents: read
       id-token: write # For federated auth
@@ -22,10 +22,10 @@ jobs:
           lfs: 'true'
           submodules: 'true'
       - name: setup-msbuild
-        uses: microsoft/setup-msbuild@v1.3.1
+        uses: microsoft/setup-msbuild@v2
       # Restore NuGet
       - name: Setup NuGet.exe for use with actions
-        uses: NuGet/setup-nuget@v1.1.1
+        uses: NuGet/setup-nuget@v2
       - name: Generate NuGet Cache Key
         id: nuget_cache_key
         run: powershell -Command echo "key=nuget-cache-$((Get-FileHash -InputStream ([IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes((Select-String -Path "*/*.csproj" -Pattern "PackageReference" | foreach {$_.line.Trim()} | Sort-Object))))).Hash)" >> $env:GITHUB_OUTPUT
@@ -63,17 +63,6 @@ jobs:
         with:
           name: schemas
           path: schemas/
-      # Build Data Files
-      - name: Generate vanilla SE data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data space-vanilla
-      - name: Generate vanilla ME data
-        run: SchemaBuilder/bin/Release/SchemaBuilder.exe data medieval-vanilla
-      # Upload Data
-      - name: Upload Data
-        uses: actions/upload-artifact@v4
-        with:
-          name: data
-          path: data/
       # Publish to GCS
       - name: Log into gcloud
         id: auth

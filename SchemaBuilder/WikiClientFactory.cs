@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -20,7 +20,7 @@ namespace SchemaBuilder
             _loggerFactory = loggerFactory;
         }
 
-        public  Task WithClient(string endpoint, Func<WikiSite, Task> callback) => WithClient(endpoint, null, null, callback);
+        public Task WithClient(string endpoint, Func<WikiSite, Task> callback) => WithClient(endpoint, null, null, callback);
 
         public async Task WithClient(string endpoint, string user, string password, Func<WikiSite, Task> callback)
         {
@@ -40,8 +40,8 @@ namespace SchemaBuilder
                 Logger = _loggerFactory.CreateLogger<WikiSite>()
             };
             await site.Initialization;
-            _log.LogInformation($"API Version: {site.SiteInfo.Version}");
-            _log.LogInformation($"User: {site.AccountInfo?.Name ?? "none"}");
+            _log.LogInformation("API Version: {0}", site.SiteInfo.Version);
+            _log.LogInformation("User: {0}", site.AccountInfo?.Name ?? "none");
 
             await callback(site);
         }
