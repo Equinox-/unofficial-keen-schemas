@@ -72,7 +72,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
-        <PackageReference Include="protobuf-net.Core" Version="3.2.56" />
+        <PackageReference Include="protobuf-net" Version="3.2.56" />
         <PackageReference Include="System.Text.Json" Version="7.0.4" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
