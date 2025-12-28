@@ -15,7 +15,7 @@ namespace SchemaBuilder
     public class GameManager : IHostedService
     {
         // Data files required for definition loading.
-        private static readonly string[] DataFileExtensions = { ".mwm", ".sbc", ".resx", ".xml" };
+        private static readonly string[] DataFileExtensions = { ".sbc", ".resx", ".xml" };
 
         private static bool IsDataFile(string path)
         {
