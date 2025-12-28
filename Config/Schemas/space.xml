@@ -26,6 +26,9 @@
     <SuppressedType>VRage.ObjectBuilders.MyObjectBuilder_EntityBase</SuppressedType>
     <SuppressedType>VRage.Game.ObjectBuilders.ComponentSystem.MyObjectBuilder_ComponentBase</SuppressedType>
     <SuppressedType>VRage.Game.MyObjectBuilder_CubeBlock</SuppressedType>
+    <!-- Unused blueprint definition subtypes that complicate the inheritance tree. -->
+    <SuppressedType>VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_BlockBlueprintDefinition</SuppressedType>
+    <SuppressedType>VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_RepairBlueprintDefinition</SuppressedType>
 
     <Type Name="VRage.ObjectBuilders.MyObjectBuilder_DefinitionBase">
         <Member Name="Enabled"> <!-- attribute -->
