@@ -97,10 +97,16 @@ export function setupEditor(editorDom: HTMLElement) {
     ace_themelist.themes.splice(0, ace_themelist.themes.length, ace_themelist.themesByName['monokai'], ace_themelist.themesByName['textmate']);
 
     let initialSelection = locationParameters().selection;
+    let selectionChangeTimeout = setTimeout(syncSelection, 1000)
 
     editor.session.selection.on('changeSelection', function () {
-        setLocationParameter('selection', editor.selection.isEmpty() ? [] : [btoa(JSON.stringify(editor.selection.toJSON()))]);
+        clearTimeout(selectionChangeTimeout);
+        setTimeout(syncSelection, 1000);
     });
+
+    function syncSelection() {
+        setLocationParameter('selection', editor.selection.isEmpty() ? [] : [btoa(JSON.stringify(editor.selection.toJSON()))]);
+    }
 
     let parameters: ReturnType<typeof editorParameters> = {};
     let schemaPromise: Promise<SchemaIr> | undefined = null;
@@ -113,24 +119,24 @@ export function setupEditor(editorDom: HTMLElement) {
             if (schemaChanged)
                 schemaPromise = fetch(schemaPath + ".json").then(response => response.json()).then(json => json as SchemaIr);
 
-            if (path?.length >= 1 && (parameters.path?.join("->") != path.join("->") || schemaChanged)) {
-                schemaPromise.then(ir => {
-                    const root = path[path.length - 1].split('@', 2);
-                    const stripPrefix = "MyObjectBuilder_";
-                    document.title = root.length == 2 ? root[1].startsWith(stripPrefix) ? root[1].substring(stripPrefix.length) : root[1] : root[0];
-                    const builder = new XmlBuilder({ editor, tooltips, schema: schemaPath + ".xsd" });
-                    generateExample(ir, builder, path);
-                    if (initialSelection?.length == 1) {
-                        editor.selection.fromJSON(JSON.parse(atob(initialSelection[0])));
-                        initialSelection = null;
-                    } else {
-                        setLocationParameter('selection', []);
-                    }
-                }).catch(err => {
-                    tooltips.clearTooltips();
-                    console.warn('Failed to load schema IR', err);
-                    editor.setValue('Failed to load schema IR:\n' + err);
-                });
+            if (path?.length >= 1) {
+                if (parameters.path?.join("->") != path.join("->") || schemaChanged) {
+                    schemaPromise.then(ir => {
+                        const root = path[path.length - 1].split('@', 2);
+                        const stripPrefix = "MyObjectBuilder_";
+                        document.title = root.length == 2 ? root[1].startsWith(stripPrefix) ? root[1].substring(stripPrefix.length) : root[1] : root[0];
+                        const builder = new XmlBuilder({ editor, tooltips, schema: schemaPath + ".xsd" });
+                        generateExample(ir, builder, path);
+                        if (initialSelection?.length == 1) {
+                            editor.selection.fromJSON(JSON.parse(atob(initialSelection[0])));
+                            initialSelection = null;
+                        }
+                    }).catch(err => {
+                        tooltips.clearTooltips();
+                        console.warn('Failed to load schema IR', err);
+                        editor.setValue('Failed to load schema IR:\n' + err);
+                    });
+                }
             } else {
                 tooltips.clearTooltips();
                 editor.setValue('Set a path parameter');

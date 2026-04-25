@@ -35,5 +35,6 @@ export function hashToSetLocationParameters(newKey: string, newValues: string[])
 
 export function setLocationParameter(newKey: string, newValues: string[]) {
     const hash = hashToSetLocationParameters(newKey, newValues);
+    if (window.location.hash == hash) return;
     window.location.hash = hash;
 }

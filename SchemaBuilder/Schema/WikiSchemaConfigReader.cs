@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using WikiClientLibrary.Client;
 using WikiClientLibrary.Generators;
+using WikiClientLibrary.Pages.Parsing;
 
 namespace SchemaBuilder.Schema
 {
@@ -60,6 +61,7 @@ namespace SchemaBuilder.Schema
                         var type = match.Result(pageConfig.Type);
                         var cleanType = InvalidTypeCharacters.Replace(type, "");
                         await ParseDocPage(page, cleanType);
+                        await Task.Delay(TimeSpan.FromSeconds(5));
                     }
                 }
 
