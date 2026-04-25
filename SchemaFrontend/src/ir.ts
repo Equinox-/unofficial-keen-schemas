@@ -11,6 +11,7 @@ export interface Documented {
 
 export interface ObjectType extends Documented {
     $type: 'object',
+    abstract?: boolean,
     base?: CustomTypeRef,
     elements: { [elementName: string]: Property },
     attributes: { [attributeName: string]: Property },

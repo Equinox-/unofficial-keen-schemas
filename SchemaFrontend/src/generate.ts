@@ -1,5 +1,6 @@
-import { ItemTypeRef, ObjectType, PrimitiveType, Property, SchemaIr, Type, TypeRef } from "./ir";
+import { ItemTypeRef, ObjectType, PrimitiveType, Property, SchemaIr, Type, TypeRef, CustomTypeRef } from "./ir";
 import { XmlBuilder } from "./xml";
+import { hashToSetLocationParameters } from "./util";
 
 function typeByName(ir: SchemaIr, name: string): Type {
     const type = ir.types[name];
@@ -15,7 +16,32 @@ function constrainedTypeByName<T extends Type['$type']>(ir: SchemaIr, name: stri
     return type as any;
 }
 
+function subtypes(ir: SchemaIr, type: string): string[] {
+    const irExt = ir as SchemaIr & { __subtypes?: { [typeName: string]: string[] } };
+    if (irExt.__subtypes == null) {
+        irExt.__subtypes = {};
+        for (const [ typeName, type ] of Object.entries(ir.types)) {
+            if (type.$type != 'object') {
+                continue;
+            }
+            irExt.__subtypes[typeName] = [];
+        }
+        for (const [ typeName, type ] of Object.entries(ir.types)) {
+            if (type.$type != 'object') {
+                continue;
+            }
+            let base: CustomTypeRef | undefined = type.base;
+            while (base != null) {
+                irExt.__subtypes[base.name].push(typeName);
+                base = constrainedTypeByName(ir, base.name, 'object').base;
+            }
+        }
+    }
+    return irExt.__subtypes[type]!;
+}
+
 export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[]) {
+    let elementName = '<root>';
     let typeName = '<root>';
     let type: ObjectType = { $type: 'object', elements: ir.rootElements, attributes: {} };
     let openedElements = 0;
@@ -46,20 +72,38 @@ export function generateExample(ir: SchemaIr, builder: XmlBuilder, path: string[
                 break;
         }
 
+        if (itemType.$type != 'custom') {
+            throw new Error('Navigating path ' + path.join(' -> ') + ' at ' + element + ', element is not an object');
+        }
+
+        elementName = name;
         if (customTypeName != null) {
             typeName = customTypeName;
             type = constrainedTypeByName(ir, customTypeName, 'object');
             builder.writeXsiType(customTypeName, appendDocLine(type.documentation, '<i>' + customTypeName + '</i>'));
             continue;
         }
-
-        if (itemType.$type != 'custom') {
-            throw new Error('Navigating path ' + path.join(' -> ') + ' at ' + element + ', element is not an object');
-        }
         type = constrainedTypeByName(ir, itemType.name, 'object');
         typeName = itemType.name;
     }
+
     generateObjectContents(ir, builder, typeName, type);
+
+    const filteredSubtypes: string[] = subtypes(ir, typeName);
+    if (filteredSubtypes.length > 0) {
+        --openedElements;
+        builder.closeElement();
+        builder.writeComment('#region Subtypes');
+        for (const subtypeName of filteredSubtypes) {
+            const subtype = constrainedTypeByName(ir, subtypeName, 'object');
+            builder.startElement(elementName, '');
+            builder.writeXsiType(subtypeName, appendDocLine(subtype.documentation, '<a href="'
+                + hashToSetLocationParameters('path', [...path.slice(0, path.length - 1), elementName + '@' + subtypeName ])
+                + '"><i>' + subtypeName + '</i></a>'));
+            builder.closeElement();
+        }
+        builder.writeComment('#endregion Subtypes');
+    }
     for (let i = 0; i < openedElements; i++) {
         builder.closeElement();
     }

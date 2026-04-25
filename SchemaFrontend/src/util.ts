@@ -19,7 +19,7 @@ export function locationParameters(): { [key: string]: string[] } {
     return result;
 }
 
-export function setLocationParameter(newKey: string, newValues: string[]) {
+export function hashToSetLocationParameters(newKey: string, newValues: string[]) {
     let hash = '#';
     const params = locationParameters();
     params[newKey] = newValues;
@@ -30,9 +30,10 @@ export function setLocationParameter(newKey: string, newValues: string[]) {
             hash += encodeURIComponent(key) + '=' + encodeURIComponent(value);
         }
     }
-    if (window.history.pushState != null) {
-        window.history.pushState(null, null, hash);
-    } else {
-        window.location.hash = hash;
-    }
+    return hash;
+}
+
+export function setLocationParameter(newKey: string, newValues: string[]) {
+    const hash = hashToSetLocationParameters(newKey, newValues);
+    window.location.hash = hash;
 }

@@ -155,6 +155,9 @@ export class XmlBuilder {
     }
 
     private tooltip(ref: Ace.Position, start: number, length: number, content: string) {
+        if (content.length == 0) {
+            return;
+        }
         const range = Range.fromPoints({ row: ref.row, column: ref.column + start }, { row: ref.row, column: ref.column + start + length });
         this.options.tooltips?.addTooltip({
             range,

@@ -30,6 +30,9 @@ namespace SchemaBuilder.Schema
 
     public sealed class ObjectTypeIr : TypeIr
     {
+        [JsonPropertyName("abstract")]
+        public bool Abstract;
+
         [JsonPropertyName("base")]
         public CustomTypeReferenceIr BaseType;
 

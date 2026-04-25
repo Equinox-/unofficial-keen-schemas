@@ -35,7 +35,7 @@ namespace SchemaBuilder.Schema
 
         private static TypeIr CompileComplexType(XmlSchemaComplexType type)
         {
-            var result = new ObjectTypeIr();
+            var result = new ObjectTypeIr { Abstract = type.IsAbstract };
             AttachDocumentation(result, type);
 
             IndexParticle(type.Particle, false);
