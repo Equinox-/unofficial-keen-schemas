@@ -121,7 +121,7 @@ namespace SchemaBuilder
             {
                 typeof(string), // assembly name
                 typeof(IEnumerable<>).MakeGenericType(scriptType), // scripts
-                typeof(IEnumerable<Assembly>), // references 
+                typeof(IEnumerable<MetadataReference>), // references 
                 typeof(bool), // include debug information
             }, Array.Empty<ParameterModifier>()) ?? throw new Exception("Failed to find create compilation");
             _analyzeDiagnostics = scriptCompiler.GetMethod("AnalyzeDiagnostics", flags, null, new[]
@@ -146,7 +146,7 @@ namespace SchemaBuilder
                 {
                     args.ScriptFiles.Select(path => _scriptTypeCtor.Invoke(new object[] { path, File.ReadAllText(path) }))
                 }),
-                args.References,
+                args.References.Select(x => MetadataReference.CreateFromFile(x.Location)).ToList(),
                 false /* no debug info*/
             });
             return rawCompilation.WithAnalyzers(ImmutableArray.Create(
