@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using WikiClientLibrary.Client;
-using WikiClientLibrary.Generators;
-using WikiClientLibrary.Pages.Parsing;
+using WikiClientLibrary.Generators.Primitive;
+using WikiClientLibrary.Infrastructures;
+using WikiClientLibrary.Pages;
+using WikiClientLibrary.Sites;
 
 namespace SchemaBuilder.Schema
 {
@@ -36,6 +39,8 @@ namespace SchemaBuilder.Schema
         {
             var configOut = new SchemaConfig();
             var wikiRoot = new Uri(new Uri(cfg.Api), "/");
+            var cacheDir = Path.Combine(Path.GetFullPath("."), "wiki", new Uri(cfg.Api).Host);
+            Directory.CreateDirectory(cacheDir);
             await _clientFactory.WithClient(cfg.Api, async site =>
             {
                 foreach (var pageConfig in cfg.Pages)
@@ -47,41 +52,75 @@ namespace SchemaBuilder.Schema
                     }
 
                     var sourceRegex = new Regex(pageConfig.Source);
-                    using var itr = new TranscludedInGenerator(site, pageConfig.RegexFromTemplate)
+                    var pages = await new TranscludedWithRevisionGenerator(site)
                         {
-                            NamespaceIds = new[] { 0 }
+                            TargetTitle = pageConfig.RegexFromTemplate,
+                            NamespaceIds = new[] { 0 },
+                            PaginationSize = 100,
                         }
                         .EnumItemsAsync()
-                        .GetEnumerator();
-                    while (await itr.MoveNext())
+                        .ToList();
+                    for (var i = 0; i < pages.Count; i++)
                     {
-                        var page = itr.Current.Title;
-                        var match = sourceRegex.Match(page);
+                        var page = pages[i];
+                        var match = sourceRegex.Match(page.Stub.Title);
                         if (!match.Success) continue;
                         var type = match.Result(pageConfig.Type);
                         var cleanType = InvalidTypeCharacters.Replace(type, "");
-                        await ParseDocPage(page, cleanType);
-                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        await ParseDocPage(page.Stub.Title, cleanType, page.Stub.Id, page.Revision);
+                        _log.LogInformation($"Parsed page {i + 1}/{pages.Count}");
                     }
                 }
 
                 return;
 
-                async Task ParseDocPage(string source, string type)
+                async Task<(JToken, bool)> MaybeCachedLoad(string page, int id, string timestamp)
+                {
+                    if (id == 0 || timestamp == null)
+                        return (await Load(), false);
+                    var timeFile = Path.Combine(cacheDir, id + ".time");
+                    var contentFile = Path.Combine(cacheDir, id + ".json");
+                    if (File.Exists(timeFile) && File.Exists(contentFile))
+                    {
+                        try
+                        {
+                            if (File.ReadAllText(timeFile) == timestamp)
+                                return (JToken.Parse(File.ReadAllText(contentFile)), true);
+                        }
+                        catch (Exception err)
+                        {
+                            _log.LogInformation($"Failed to read cache files for page {page}: {err}");
+                        }
+                    }
+
+                    var result = await Load();
+                    File.WriteAllText(contentFile, result.ToString());
+                    File.WriteAllText(timeFile, timestamp);
+                    return (result, false);
+
+                    async Task<JToken> Load()
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        return await site.InvokeMediaWikiApiAsync(new MediaWikiFormRequestMessage(new Dictionary<string, string>
+                        {
+                            ["action"] = "parse",
+                            ["format"] = "json",
+                            ["page"] = page,
+                            ["prop"] = "text",
+                        }), CancellationToken.None);
+                    }
+                }
+
+                async Task ParseDocPage(string source, string type, int id = 0, string timestamp = null)
                 {
                     var types = new HashSet<string>();
                     try
                     {
-                        const string prop = "text";
-                        var body = await site.InvokeMediaWikiApiAsync(new MediaWikiFormRequestMessage(new Dictionary<string, string>
-                        {
-                            ["action"] = "parse",
-                            ["format"] = "json",
-                            ["page"] = source,
-                            ["prop"] = prop
-                        }), default);
+                        var (body, cached) = await MaybeCachedLoad(source, id, timestamp);
+                        if (cached)
+                            _log.LogInformation($"Cache hit for page {source} timestamp {timestamp}");
                         var xml = new XmlDocument { PreserveWhitespace = true };
-                        xml.LoadXml(body.Value<JToken>("parse").Value<JToken>(prop).Value<string>("*")!);
+                        xml.LoadXml(body.Value<JToken>("parse").Value<JToken>("text").Value<string>("*")!);
                         var typeTables = xml.SelectNodes(XPathTypeTable)!;
                         foreach (var typeTable in typeTables.OfType<XmlElement>())
                         {
@@ -196,6 +235,44 @@ namespace SchemaBuilder.Schema
                     return mostSignificant;
                 }
             }
+        }
+
+        private struct WikiPageWithRevision
+        {
+            public WikiPageStub Stub;
+            public string Revision;
+        }
+
+        private sealed class TranscludedWithRevisionGenerator : WikiPageGenerator<WikiPageWithRevision>
+        {
+            public TranscludedWithRevisionGenerator(WikiSite site) : base(site)
+            {
+            }
+
+            public string TargetTitle { get; set; }
+            public IEnumerable<int> NamespaceIds { get; set; }
+
+            public override IEnumerable<KeyValuePair<string, object>> EnumListParameters() => new Dictionary<string, object>
+            {
+                { "prop", "revisions" },
+                { "generator", "embeddedin" },
+                { "rvprop", "timestamp" },
+                { "geititle", TargetTitle },
+                { "geinamespace", NamespaceIds == null ? null : MediaWikiHelper.JoinValues(NamespaceIds) },
+                { "geilimit", PaginationSize },
+            };
+
+            protected override WikiPageWithRevision ItemFromJson(JToken json)
+            {
+                var data = json.First;
+                return new WikiPageWithRevision
+                {
+                    Stub = new WikiPageStub((int)data["pageid"], (string)data["title"], (int)data["ns"]),
+                    Revision = (string)data["revisions"]?[0]?["timestamp"],
+                };
+            }
+
+            public override string ListName => "pages";
         }
 
         enum CleanWhitespaceResult

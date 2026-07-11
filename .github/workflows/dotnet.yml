@@ -48,8 +48,19 @@ jobs:
         with:
           key: ${{ steps.game_cache_key.outputs.key }}
           restore-keys: |
-            game-cache-v3-
+            game-cache-v4-
           path: game/
+      # Restore wiki cache keys.
+      - name: Generate wiki cache key
+        id: wiki_cache_key
+        run: powershell -Command echo "key=wiki-cache-v1-$(Get-Date -Format yyyy-MM)" >> $env:GITHUB_OUTPUT
+      - name: Cache Wiki Pages
+        uses: actions/cache@v3
+        with:
+          key: ${{ steps.wiki_cache_key.outputs.key }}
+          restore-keys: |
+            wiki-cache-v1-
+          path: wiki/
       # Build Schemas
       - name: Generate vanilla SE schema
         run: SchemaBuilder/bin/Release/SchemaBuilder.exe schema space-vanilla
