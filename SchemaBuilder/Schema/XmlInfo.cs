@@ -24,7 +24,6 @@ namespace SchemaBuilder.Schema
         public IEnumerable<XmlTypeInfo> Generated => _generatedTypes;
         public IEnumerable<XmlTypeInfo> AllTypes => _typeLookup.Values;
 
-
         public XmlTypeInfo Generate(Type type)
         {
             var info = Lookup(type);
@@ -48,7 +47,7 @@ namespace SchemaBuilder.Schema
                 info = new XmlTypeInfo(this, baseType);
             }
 
-            if (type.IsGenericType)
+            if (type.IsConstructedGenericType)
                 info.GenericSpecializations.Add(type);
             return info;
         }
@@ -92,7 +91,7 @@ namespace SchemaBuilder.Schema
                 foreach (var member in type.Members.Values)
                     _overrides.Add(type.Type, member.Member.Name, member.Attributes);
             }
-            
+
             // Propagate name overrides for generic specializations
             foreach (var type in AllTypes)
             {
@@ -201,7 +200,7 @@ namespace SchemaBuilder.Schema
         }
 
         public string XmlTypeName => XmlInfo.FirstNonEmpty(Attributes.XmlType?.TypeName, _implicitXmlName);
-        
+
         public XmlTypeInfo(XmlInfo resolution, Type type)
         {
             Type = type;
@@ -269,6 +268,12 @@ namespace SchemaBuilder.Schema
         public XmlMemberInfo(XmlInfo resolution, MemberInfo member)
         {
             Member = member;
+            var memberType = member switch
+            {
+                PropertyInfo prop => prop.PropertyType,
+                FieldInfo field => field.FieldType,
+                _ => null
+            };
             Attributes = new XmlAttributes(member);
             IsPolymorphicElement = Attributes.XmlElements.Count == 1 && IsPolymorphicSerializer(Attributes.XmlElements[0].Type);
             IsPolymorphicArrayItem = Attributes.XmlArrayItems.Count == 1 && IsPolymorphicSerializer(Attributes.XmlArrayItems[0].Type);
@@ -283,12 +288,6 @@ namespace SchemaBuilder.Schema
                     _elementNames.Add(member.Name);
             }
 
-            var memberType = member switch
-            {
-                PropertyInfo prop => prop.PropertyType,
-                FieldInfo field => field.FieldType,
-                _ => null
-            };
             if (Attributes.XmlDefaultValue != null && memberType != null)
                 Attributes.XmlDefaultValue = FixDefaultValue(Attributes.XmlDefaultValue, memberType);
 
@@ -309,6 +308,34 @@ namespace SchemaBuilder.Schema
                 memberType = serializationProxy;
             }
 
+            if (TryGetPolymorphicBase(memberType, out var polymorphic))
+            {
+                IsPolymorphicElement = true;
+                if (Attributes.XmlElements.Count == 0) Attributes.XmlElements.Add(new XmlElementAttribute());
+                Attributes.XmlElements[0].Type = polymorphic;
+                memberType = polymorphic;
+            }
+
+            if (TryUnwrapCollection(memberType, out var collectionItem) && TryGetPolymorphicBase(collectionItem, out polymorphic))
+            {
+                if (Attributes.XmlArrayItems.Count > 0)
+                {
+                    IsPolymorphicArrayItem = true;
+                    Attributes.XmlArrayItems[0].Type = polymorphic;
+                }
+                else if (Attributes.XmlElements.Count > 0)
+                {
+                    IsPolymorphicElement = true;
+                    Attributes.XmlElements[0].Type = polymorphic;
+                }
+                else
+                {
+                    IsPolymorphicArrayItem = true;
+                    Attributes.XmlArrayItems.Add(new XmlArrayItemAttribute { Type = polymorphic });
+                }
+                memberType = polymorphic;
+            }
+
             CollectType(_referencedTypes, memberType);
             if (!IsPolymorphicElement && !IsPolymorphicArrayItem)
             {
@@ -320,10 +347,48 @@ namespace SchemaBuilder.Schema
                         CollectType(_includedTypes, element.Type);
             }
 
+            return;
+
+            bool TryUnwrapCollection(Type input, out Type item)
+            {
+                if (input.IsArray)
+                {
+                    item = input.GetElementType();
+                    return true;
+                }
+
+                if (input.IsConstructedGenericType && input.GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    item = input.GetGenericArguments()[0];
+                    return true;
+                }
+
+                item = null;
+                return false;
+            }
+
+            bool TryGetPolymorphicBase(Type wrapped, out Type polymorphic)
+            {
+                if (wrapped is { IsGenericType: true }
+                    && wrapped.GetGenericTypeDefinition().FullName == "Equinox76561198048419394.Core.Util.AbstractXmlProxy`1")
+                {
+                    polymorphic = wrapped.GetGenericArguments()[0];
+                    return true;
+                }
+
+                polymorphic = null;
+                return false;
+            }
+
             void CollectType(List<XmlTypeInfo> target, Type type)
             {
                 if (type.IsGenericParameter)
                     return;
+                if (TryGetPolymorphicBase(type, out var polymorphic))
+                {
+                    CollectType(target, polymorphic);
+                    return;
+                }
 
                 if (type.HasElementType)
                 {

@@ -47,7 +47,7 @@ namespace SchemaBuilder
             var info = GameInfo.Games[game];
             branch ??= info.SteamBranch;
             var installDir = Path.Combine(_rootDir, "game", game.ToString(), branch);
-            if (!OfflineMode)
+            if (false && !OfflineMode)
                 await RunWithRetry(steam => steam.InstallAppAsync(info.SteamDedicatedAppId, info.SteamDedicatedDepotId, branch, installDir,
                     path => path.StartsWith(BinariesDir) || IsDataFile(path), game.ToString()));
 
@@ -118,7 +118,7 @@ namespace SchemaBuilder
         {
             var info = GameInfo.Games[game];
             var installDir = Path.Combine(_rootDir, "game", game + "-workshop", details.publishedfileid.ToString());
-            if (!OfflineMode)
+            if (false && !OfflineMode)
                 await RunWithRetry(steam => steam.InstallModAsync(info.SteamGameAppId, details.publishedfileid, installDir,
                     path => path.IndexOf("Data/Scripts", StringComparison.OrdinalIgnoreCase) >= 0
                             || path.IndexOf("Data\\Scripts", StringComparison.OrdinalIgnoreCase) >= 0
